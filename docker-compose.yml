@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq-server
+    restart: unless-stopped
+    ports:
+      - "5672:5672" # AMQP message broker port
+      - "15672:15672" # Management UI web console
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: securepassword123
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  rabbitmq_data:
+  rabbitmq_logs:
