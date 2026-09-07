@@ -1,4 +1,4 @@
-module payment-worker
+module payment
 
 go 1.27.1
 
