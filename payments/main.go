@@ -42,6 +42,8 @@ func run() error {
 		return fmt.Errorf("Failed to load settings: %v", err)
 	}
 
+	SetupLogger(settings.LogLevel)
+
 	env := rmq.NewEnvironment(settings.BrokerURI, nil)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -134,7 +136,7 @@ func run() error {
 			slog.Error("Message was rejected", "outcome", res.Outcome)
 			continue
 		case *rmq.StateReleased:
-			slog.Error("Message was released", "outcome", res.Outcome)
+			slog.Info("Message was released", "outcome", res.Outcome)
 			continue
 		case *rmq.StateModified:
 			slog.Error("Message was modified", "outcome", res.Outcome)

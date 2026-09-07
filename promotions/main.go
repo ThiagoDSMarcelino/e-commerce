@@ -44,6 +44,8 @@ func run() error {
 		return fmt.Errorf("Failed to load settings: %v", err)
 	}
 
+	SetupLogger(settings.LogLevel)
+
 	env := rmq.NewEnvironment(settings.BrokerURI, nil)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -65,10 +67,9 @@ func run() error {
 	defer func() { _ = publisher.Close(context.Background()) }()
 
 	for {
-		delay := rand.IntN(maxDelaySeconds-minDelaySeconds+1) + minDelaySeconds
-		time.Sleep(time.Duration(delay) * time.Second)
-
 		category := categories[rand.IntN(len(categories))]
+
+		slog.Info("Creating promotion", "category", category)
 
 		routingKey := routingKeyPromotions + "." + category
 
@@ -92,14 +93,23 @@ func run() error {
 			slog.Error("Message was rejected", "outcome", res.Outcome)
 			continue
 		case *rmq.StateReleased:
-			slog.Error("Message was released", "outcome", res.Outcome)
-			continue
+			slog.Info("Message was released", "outcome", res.Outcome)
 		case *rmq.StateModified:
 			slog.Error("Message was modified", "outcome", res.Outcome)
 			continue
 		default:
 			slog.Error("Unexpected publish outcome", "outcome", res.Outcome)
 			continue
+		}
+
+		delay := rand.IntN(maxDelaySeconds-minDelaySeconds+1) + minDelaySeconds
+		slog.Debug("Promotion sent", "category", category, "delay", delay)
+
+		select {
+		case <-ctx.Done():
+			slog.Info("Shutting down")
+			return nil
+		case <-time.After(time.Duration(delay) * time.Second):
 		}
 	}
 }
