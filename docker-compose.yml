@@ -19,6 +19,18 @@ services:
       retries: 3
       start_period: 30s
 
+  payments:
+    build: ./payments
+    container_name: payments-worker
+    restart: unless-stopped
+    environment:
+      BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
+      EXCHANGE_NAME: e_commerce
+      LOG_LEVEL: debug
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   promotions:
     build: ./promotions
     container_name: promotions-worker
@@ -31,9 +43,9 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  payments:
-    build: ./payments
-    container_name: payments-worker
+  shipping:
+    build: ./shipping
+    container_name: shipping-worker
     restart: unless-stopped
     environment:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/

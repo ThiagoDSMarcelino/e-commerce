@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand/v2"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,12 +13,9 @@ import (
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
-const (
-	routingKeyApproved = "pagamento.aprovado"
-	routingKeyDeclined = "pagamento.recusado"
-)
+const routingKey = "pedido.enviado"
 
-var bindingKeys = []string{"pedido.estoque_ok"}
+var bindingKeys = []string{"pagamento.aprovado"}
 
 func main() {
 	if err := run(); err != nil {
@@ -105,18 +101,7 @@ func run() error {
 			body = string(incomeMsg.Data[0])
 		}
 
-		slog.Info("Iniciando pagamento", "order", body)
-		randomInt := rand.IntN(100)
-		shouldAprove := randomInt < 80 // 80% chance of approval
-
-		var routingKey string
-		if shouldAprove {
-			slog.Info("Pagamento aprovado", "order", body)
-			routingKey = routingKeyApproved
-		} else {
-			slog.Info("Pagamento recusado", "order", body)
-			routingKey = routingKeyDeclined
-		}
+		slog.Info("Iniciando envio do pedido", "order", body)
 
 		outcomeMsg, err := rmq.NewMessageWithAddress([]byte(`{"pedido": 123}`), &rmq.ExchangeAddress{
 			Exchange: settings.ExchangeName,
