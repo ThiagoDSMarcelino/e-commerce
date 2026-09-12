@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,6 +13,15 @@ import (
 	"github.com/joho/godotenv"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
+
+type Order struct {
+	Id       string `json:"id"`
+	Products []struct {
+		Id     string `json:"id"`
+		Name   string `json:"name"`
+		Amount int    `json:"amount"`
+	} `json:"products"`
+}
 
 const routingKey = "pedido.enviado"
 
@@ -79,7 +89,9 @@ func run() error {
 		}
 	}
 
-	consumer, err := conn.NewConsumer(ctx, qInfo.Name(), nil)
+	consumer, err := conn.NewConsumer(ctx, qInfo.Name(), &rmq.ConsumerOptions{
+		InitialCredits: 1, // One message at a time
+	})
 	if err != nil {
 		return fmt.Errorf("Failed to create consumer: %v", err)
 	}
@@ -95,48 +107,68 @@ func run() error {
 			return fmt.Errorf("Failed to receive a message: %v", err)
 		}
 
-		incomeMsg := delivery.Message()
-		var body string
-		if len(incomeMsg.Data) > 0 {
-			body = string(incomeMsg.Data[0])
+		message := delivery.Message()
+
+		var order Order
+		err = json.Unmarshal(message.Data[0], &order)
+		if err != nil {
+			slog.Error("Failed to unmarshal message", "error", err)
+			_ = delivery.Discard(ctx, nil)
+			continue
 		}
 
-		slog.Info("Iniciando envio do pedido", "order", body)
+		slog.Info("Iniciando envio do pedido", "order", order)
+		slog.Info("Nota fiscal emitida", "order", order)
+		slog.Info("Entrega iniciada", "order", order)
 
-		outcomeMsg, err := rmq.NewMessageWithAddress([]byte(`{"pedido": 123}`), &rmq.ExchangeAddress{
+		payload, err := json.Marshal(order)
+		if err != nil {
+			slog.Error("Failed to marshal order", "error", err)
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
+
+		event, err := rmq.NewMessageWithAddress([]byte(payload), &rmq.ExchangeAddress{
 			Exchange: settings.ExchangeName,
 			Key:      routingKey,
 		})
 		if err != nil {
 			slog.Error("Failed to create message", "error", err)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		}
 
-		res, err := publisher.Publish(ctx, outcomeMsg)
+		res, err := publisher.Publish(ctx, event)
 		if err != nil {
 			slog.Error("Failed to publish", "error", err)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		}
+
 		switch res.Outcome.(type) {
 		case *rmq.StateAccepted:
 		case *rmq.StateRejected:
 			slog.Error("Message was rejected", "outcome", res.Outcome)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		case *rmq.StateReleased:
 			slog.Info("Message was released", "outcome", res.Outcome)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		case *rmq.StateModified:
 			slog.Error("Message was modified", "outcome", res.Outcome)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		default:
 			slog.Error("Unexpected publish outcome", "outcome", res.Outcome)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		}
 
 		err = delivery.Accept(ctx)
 		if err != nil {
-			// TODO: Mensagem já foi processada, mas não foi possível enviar o ack para o broker. Precisa ser tratado de forma mais adequada.
 			slog.Error("Failed to accept message", "error", err)
+			_ = delivery.Discard(ctx, nil)
 			continue
 		}
 	}
