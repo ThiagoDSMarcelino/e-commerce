@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
 const routingKey = "pedido.enviado"
@@ -42,24 +40,10 @@ func run() error {
 		_ = broker.Close()
 	}()
 
-	return broker.Consume(ctx, func(ctx context.Context, delivery rmq.IDeliveryContext) error {
-		message := delivery.Message()
-
-		if len(message.Data) == 0 {
-			return fmt.Errorf("Received message with no data")
-		}
-
-		if len(message.Data) > 1 {
-			return fmt.Errorf("Received message with multiple data parts")
-		}
-
-		if len(message.Data[0]) == 0 {
-			return fmt.Errorf("Received message with empty data")
-		}
-
-		order, err := ParseOrder(message.Data[0])
+	return broker.Consume(ctx, func(ctx context.Context, data []byte) MessageResponse {
+		order, err := ParseOrder(data)
 		if err != nil {
-			return fmt.Errorf("Failed to parse order: %v", err)
+			return Rejected
 		}
 
 		slog.Info("Iniciando envio do pedido", "order", order)
@@ -68,19 +52,14 @@ func run() error {
 
 		payload, err := order.Serialize()
 		if err != nil {
-			return fmt.Errorf("Failed to serialize order: %v", err)
+			return Rejected
 		}
 
 		err = broker.Publish(ctx, routingKey, payload)
 		if err != nil {
-			return fmt.Errorf("Failed to publish message: %v", err)
+			return Requeued
 		}
 
-		err = delivery.Accept(ctx)
-		if err != nil {
-			return fmt.Errorf("Failed to accept message: %v", err)
-		}
-
-		return nil
+		return Accepted
 	})
 }

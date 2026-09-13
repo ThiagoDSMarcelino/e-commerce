@@ -16,6 +16,14 @@ type Broker struct {
 	exchangeName string
 }
 
+type MessageResponse int
+
+const (
+	Accepted MessageResponse = iota
+	Requeued
+	Rejected
+)
+
 func NewBroker(ctx context.Context, uri, exchangeName string, bindingKeys []string) (*Broker, error) {
 	env := rmq.NewEnvironment(uri, nil)
 	conn, err := env.NewConnection(ctx)
@@ -104,7 +112,7 @@ func (b *Broker) Publish(ctx context.Context, routingKey string, message []byte)
 	}
 }
 
-func (b *Broker) Consume(ctx context.Context, handler func(context.Context, rmq.IDeliveryContext) error) error {
+func (b *Broker) Consume(ctx context.Context, handler func(context.Context, []byte) MessageResponse) error {
 	for {
 		delivery, err := b.consumer.Receive(ctx)
 		if err != nil {
@@ -115,9 +123,35 @@ func (b *Broker) Consume(ctx context.Context, handler func(context.Context, rmq.
 			return fmt.Errorf("Failed to receive a message: %v", err)
 		}
 
-		if err := handler(ctx, delivery); err != nil {
-			slog.Error("Error handling message", "error", err)
-			_ = delivery.Discard(ctx, nil)
+		message := delivery.Message()
+
+		if len(message.Data) == 0 {
+			return fmt.Errorf("Received message with no data")
+		}
+
+		if len(message.Data) > 1 {
+			return fmt.Errorf("Received message with multiple data parts")
+		}
+
+		if len(message.Data[0]) == 0 {
+			return fmt.Errorf("Received message with empty data")
+		}
+
+		response := handler(ctx, message.Data[0])
+
+		switch response {
+		case Accepted:
+			err = delivery.Accept(ctx)
+		case Requeued:
+			err = delivery.Requeue(ctx)
+		case Rejected:
+			err = delivery.Discard(ctx, nil)
+		default:
+			err = fmt.Errorf("Unknown response type: %v", response)
+		}
+
+		if err != nil {
+			return fmt.Errorf("Failed to handle delivery: %v", err)
 		}
 	}
 }
