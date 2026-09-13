@@ -12,9 +12,8 @@ type Product struct {
 }
 
 type Order struct {
-	Id        string    `json:"id"`
-	Products  []Product `json:"products"`
-	Signature string    `json:"signature"`
+	Id       string    `json:"id"`
+	Products []Product `json:"products"`
 }
 
 func ParseOrder(data []byte) (*Order, error) {
@@ -40,12 +39,4 @@ func (o *Order) Serialize() ([]byte, error) {
 func (o *Order) Create(id string, products []Product) {
 	o.Id = id
 	o.Products = products
-}
-
-func (o *Order) Sign(privateKey string) error {
-	return nil
-}
-
-func (o *Order) ValidateSignature(publicKey string) bool {
-	return true
 }

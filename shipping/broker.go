@@ -14,6 +14,8 @@ type Broker struct {
 	publisher    *rmq.Publisher
 	consumer     *rmq.Consumer
 	exchangeName string
+	signer       *Signer
+	serviceName  string
 }
 
 type MessageResponse int
@@ -24,14 +26,14 @@ const (
 	Rejected
 )
 
-func NewBroker(ctx context.Context, uri, exchangeName string, bindingKeys []string) (*Broker, error) {
-	env := rmq.NewEnvironment(uri, nil)
+func NewBroker(ctx context.Context, settings *Settings, signer *Signer, bindingKeys []string) (*Broker, error) {
+	env := rmq.NewEnvironment(settings.BrokerURI, nil)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to RabbitMQ: %v", err)
 	}
 
-	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: exchangeName})
+	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: settings.ExchangeName})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to declare an exchange: %v", err)
 	}
@@ -51,7 +53,7 @@ func NewBroker(ctx context.Context, uri, exchangeName string, bindingKeys []stri
 
 	for _, bk := range bindingKeys {
 		_, err = conn.Management().Bind(ctx, &rmq.ExchangeToQueueBindingSpecification{
-			SourceExchange:   exchangeName,
+			SourceExchange:   settings.ExchangeName,
 			DestinationQueue: qInfo.Name(),
 			BindingKey:       bk,
 		})
@@ -71,7 +73,9 @@ func NewBroker(ctx context.Context, uri, exchangeName string, bindingKeys []stri
 		env:          env,
 		publisher:    publisher,
 		consumer:     consumer,
-		exchangeName: exchangeName,
+		signer:       signer,
+		serviceName:  settings.ServiceName,
+		exchangeName: settings.ExchangeName,
 	}, nil
 }
 
@@ -90,6 +94,16 @@ func (b *Broker) Publish(ctx context.Context, routingKey string, message []byte)
 	})
 	if err != nil {
 		return fmt.Errorf("Failed to create message: %v", err)
+	}
+
+	sig, err := b.signer.Sign(message)
+	if err != nil {
+		return fmt.Errorf("failed to sign message: %w", err)
+	}
+
+	event.ApplicationProperties = map[string]any{
+		"from":      b.serviceName,
+		"signature": sig,
 	}
 
 	res, err := b.publisher.Publish(ctx, event)
@@ -126,18 +140,47 @@ func (b *Broker) Consume(ctx context.Context, handler func(context.Context, []by
 		message := delivery.Message()
 
 		if len(message.Data) == 0 {
-			return fmt.Errorf("Received message with no data")
+			slog.Error("Received message with no data")
+			_ = delivery.Discard(ctx, nil)
+			continue
 		}
 
 		if len(message.Data) > 1 {
-			return fmt.Errorf("Received message with multiple data parts")
+			slog.Error("Received message with multiple data parts")
+			_ = delivery.Discard(ctx, nil)
+			continue
 		}
 
 		if len(message.Data[0]) == 0 {
-			return fmt.Errorf("Received message with empty data")
+			slog.Error("Received message with empty data")
+			_ = delivery.Discard(ctx, nil)
+			continue
 		}
 
-		response := handler(ctx, message.Data[0])
+		from, ok := message.ApplicationProperties["from"].(string)
+		if !ok {
+			slog.Error("Received message with no 'from' property")
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
+
+		sig, ok := message.ApplicationProperties["signature"].(string)
+		if !ok {
+			slog.Error("Received message with no signature")
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
+
+		data := message.Data[0]
+
+		err = b.signer.Verify(from, sig, data)
+		if err != nil {
+			slog.Error("Received message with invalid signature", "error", err)
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
+
+		response := handler(ctx, data)
 
 		switch response {
 		case Accepted:
@@ -151,7 +194,7 @@ func (b *Broker) Consume(ctx context.Context, handler func(context.Context, []by
 		}
 
 		if err != nil {
-			return fmt.Errorf("Failed to handle delivery: %v", err)
+			slog.Error("Failed to handle delivery", "error", err)
 		}
 	}
 }

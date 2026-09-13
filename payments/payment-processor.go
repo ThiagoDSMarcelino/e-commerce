@@ -36,11 +36,6 @@ func (pp *PaymentProcessor) ProcessDelivery(ctx context.Context, data []byte) Me
 		routingKey = routingKeyDeclined
 	}
 
-	err = order.Sign("a")
-	if err != nil {
-		return Requeued
-	}
-
 	payload, err := order.Serialize()
 	if err != nil {
 		return Requeued
@@ -48,7 +43,7 @@ func (pp *PaymentProcessor) ProcessDelivery(ctx context.Context, data []byte) Me
 
 	err = pp.broker.Publish(ctx, routingKey, payload)
 	if err != nil {
-		return Requeued
+		return Rejected
 	}
 
 	return Accepted

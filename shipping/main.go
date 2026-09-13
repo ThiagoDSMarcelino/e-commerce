@@ -32,7 +32,12 @@ func run() error {
 
 	SetupLogger(settings.LogLevel)
 
-	broker, err := NewBroker(ctx, settings.BrokerURI, settings.ExchangeName, bindingKeys)
+	signer, err := NewSigner(settings)
+	if err != nil {
+		return fmt.Errorf("Failed to create signer: %v", err)
+	}
+
+	broker, err := NewBroker(ctx, settings, signer, bindingKeys)
 	if err != nil {
 		return fmt.Errorf("Failed to create broker: %v", err)
 	}
@@ -57,7 +62,7 @@ func run() error {
 
 		err = broker.Publish(ctx, routingKey, payload)
 		if err != nil {
-			return Requeued
+			return Rejected
 		}
 
 		return Accepted
