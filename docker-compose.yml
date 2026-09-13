@@ -4,8 +4,8 @@ services:
     container_name: rabbitmq-server
     restart: unless-stopped
     ports:
-      - "5672:5672" # AMQP message broker port
-      - "15672:15672" # Management UI web console
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: securepassword123
@@ -19,6 +19,24 @@ services:
       retries: 3
       start_period: 30s
 
+  keygen:
+    image: alpine/openssl
+    container_name: keygen
+    volumes:
+      - keys:/keys
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        for s in payments promotions shipping; do
+          if [ ! -f /keys/$$s.pem ]; then
+            echo "gerando chaves para $$s"
+            openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /keys/$$s.pem
+            openssl pkey -in /keys/$$s.pem -pubout -out /keys/$$s.pub
+          fi
+        done
+        chmod 644 /keys/*
+
   payments:
     build: ./payments
     container_name: payments-worker
@@ -27,9 +45,15 @@ services:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
       EXCHANGE_NAME: e_commerce
       LOG_LEVEL: debug
+      SERVICE_NAME: payments
+      KEYS_DIR: /keys
+    volumes:
+      - keys:/keys:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
+      keygen:
+        condition: service_completed_successfully
 
   promotions:
     build: ./promotions
@@ -39,9 +63,15 @@ services:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
       EXCHANGE_NAME: e_commerce
       LOG_LEVEL: debug
+      SERVICE_NAME: promotions
+      KEYS_DIR: /keys
+    volumes:
+      - keys:/keys:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
+      keygen:
+        condition: service_completed_successfully
 
   shipping:
     build: ./shipping
@@ -51,10 +81,17 @@ services:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
       EXCHANGE_NAME: e_commerce
       LOG_LEVEL: debug
+      SERVICE_NAME: shipping
+      KEYS_DIR: /keys
+    volumes:
+      - keys:/keys:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
+      keygen:
+        condition: service_completed_successfully
 
 volumes:
   rabbitmq_data:
   rabbitmq_logs:
+  keys:
