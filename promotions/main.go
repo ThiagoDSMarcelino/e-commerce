@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	maxDelaySeconds = 5
-	minDelaySeconds = 1
+	maxDelaySeconds = 10
+	minDelaySeconds = 5
 )
 
 const routingKeyPromotions = "promocao.categoria"
@@ -55,7 +55,7 @@ func run() error {
 		_ = env.CloseConnections(context.Background())
 	}()
 
-	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: settings.ExchangeName})
+	_, err = conn.Management().DeclareExchange(ctx, &rmq.TopicExchangeSpecification{Name: settings.ExchangeName})
 	if err != nil {
 		return fmt.Errorf("Failed to declare an exchange: %v", err)
 	}

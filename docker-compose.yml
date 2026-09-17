@@ -47,6 +47,7 @@ services:
       LOG_LEVEL: debug
       SERVICE_NAME: payments
       KEYS_DIR: /keys
+      QUEUE_NAME: fila.pagamento
     volumes:
       - keys:/keys:ro
     depends_on:
@@ -61,7 +62,7 @@ services:
     restart: unless-stopped
     environment:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
-      EXCHANGE_NAME: e_commerce
+      EXCHANGE_NAME: promotions
       LOG_LEVEL: debug
       SERVICE_NAME: promotions
       KEYS_DIR: /keys
@@ -83,6 +84,7 @@ services:
       LOG_LEVEL: debug
       SERVICE_NAME: shipping
       KEYS_DIR: /keys
+      QUEUE_NAME: fila.entrega
     volumes:
       - keys:/keys:ro
     depends_on:
