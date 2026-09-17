@@ -14,5 +14,6 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /promotions /promotions
+COPY --from=builder /app/products.json ./products.json
 
 ENTRYPOINT ["/promotions"]

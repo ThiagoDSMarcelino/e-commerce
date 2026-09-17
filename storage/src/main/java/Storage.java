@@ -18,6 +18,8 @@ public class Storage {
     private final Path file;
     private final Map<String, Product> products = new LinkedHashMap<>();
 
+    private final Map<String, Order> reservations = new LinkedHashMap<>();
+
     public Storage(Path file) throws IOException {
         this.file = file;
 
@@ -58,11 +60,20 @@ public class Storage {
         }
 
         apply(order, -1);
+        reservations.put(order.id(), order);
+
         return true;
     }
 
     public synchronized void credit(Order order) {
-        apply(order, +1);
+        Order reserved = reservations.remove(order.id());
+
+        if (reserved == null) {
+            System.out.println("     pedido sem reserva, estoque inalterado");
+            return;
+        }
+
+        apply(reserved, +1);
     }
 
     private void apply(Order order, int sign) {

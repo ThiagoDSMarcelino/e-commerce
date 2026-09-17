@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 )
 
@@ -16,11 +15,13 @@ const (
 	StatusPaymentOk     OrderStatus = "Pagamento aprovado"
 	StatusPaymentFailed OrderStatus = "Pagamento recusado"
 	StatusShipped       OrderStatus = "Enviado"
+	StatusCancelled     OrderStatus = "Excluído"
 )
 
 type StoredOrder struct {
-	Order  Order
-	Status OrderStatus
+	Order     Order
+	Status    OrderStatus
+	Cancelled bool
 }
 
 type OrderStore struct {
@@ -73,16 +74,22 @@ func (s *OrderStore) SetStatus(id string, status OrderStatus) bool {
 	return false
 }
 
-func (s *OrderStore) Remove(id string) (Order, bool) {
+func (s *OrderStore) MarkCancelled(id string) (Order, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for i := range s.orders {
-		if strings.EqualFold(s.orders[i].Order.Id, id) {
-			order := s.orders[i].Order
-			s.orders = slices.Delete(s.orders, i, i+1)
-			return order, true
+		if s.orders[i].Order.Id != id {
+			continue
 		}
+
+		if s.orders[i].Cancelled {
+			return Order{}, false
+		}
+
+		s.orders[i].Cancelled = true
+
+		return s.orders[i].Order, true
 	}
 
 	return Order{}, false

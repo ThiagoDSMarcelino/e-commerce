@@ -15,6 +15,7 @@ type Settings struct {
 	ExchangeName string
 	LogLevel     slog.Level
 	QueueName    string
+	KeysDir      string
 }
 
 func LoadSettings() (*Settings, error) {
@@ -42,11 +43,17 @@ func LoadSettings() (*Settings, error) {
 		return nil, errors.New("QUEUE_NAME is not set or is empty")
 	}
 
+	keysDir := os.Getenv("KEYS_DIR")
+	if keysDir == "" {
+		return nil, errors.New("KEYS_DIR is not set or is empty")
+	}
+
 	return &Settings{
 		BrokerURI:    brokerURI,
 		ExchangeName: exchangeName,
 		LogLevel:     logLevel,
 		QueueName:    queueName,
+		KeysDir:      keysDir,
 	}, nil
 }
 

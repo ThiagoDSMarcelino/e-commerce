@@ -28,9 +28,6 @@ const (
 	Rejected
 )
 
-// ErrUnroutable reports that the broker accepted the transfer but no queue was
-// bound to the routing key, so the message was dropped. Expected for events
-// whose consumer does not exist yet.
 var ErrUnroutable = errors.New("Message was not routed to any queue")
 
 func NewBroker(ctx context.Context, settings *Settings, signer *Signer, bindingKeys []string) (*Broker, error) {

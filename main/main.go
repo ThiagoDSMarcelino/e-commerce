@@ -64,7 +64,9 @@ func run() error {
 
 	consumeErrs := make(chan error, 1)
 	go func() {
-		consumeErrs <- broker.Consume(ctx, handleStatusEvent)
+		consumeErrs <- broker.Consume(ctx, func(ctx context.Context, event Event) MessageResponse {
+			return handleStatusEvent(ctx, broker, event)
+		})
 	}()
 
 	lines := make(chan string)
@@ -343,18 +345,20 @@ func delete_order(ctx context.Context, broker *Broker, readLine readFunc) (bool,
 		return false, nil
 	}
 
-	if index < 1 || index > len(products) {
+	if index < 1 || index > len(list) {
 		fmt.Println("Ordem inválida")
 		return false, nil
 	}
 
 	id := list[index-1].Order.Id
 
-	order, ok := orders.Remove(id)
+	order, ok := orders.MarkCancelled(id)
 	if !ok {
-		fmt.Println("Pedido", id, "não encontrado")
+		fmt.Println("Pedido", id, "já estava excluído")
 		return false, nil
 	}
+
+	orders.SetStatus(id, StatusCancelled)
 
 	fmt.Println("Pedido", order.Id, "excluído")
 
@@ -392,7 +396,12 @@ func view_orders() {
 
 func print_orders(list []StoredOrder) {
 	for i, stored := range list {
-		fmt.Println(i+1, "-", stored.Order.Id, "| Status:", stored.Status)
+		status := string(stored.Status)
+		if stored.Cancelled && stored.Status != StatusCancelled {
+			status += " (excluindo)"
+		}
+
+		fmt.Println(i+1, "-", stored.Order.Id, "| Status:", status)
 		for _, p := range stored.Order.Products {
 			fmt.Println("     ", p.Amount, "x", p.Id, "|", p.Name)
 		}

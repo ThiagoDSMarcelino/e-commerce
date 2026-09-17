@@ -64,6 +64,11 @@ public class Main {
                 .queue(queueName)
                 .initialCredits(1)
                 .messageHandler((context, message) -> {
+                    if (!verified(signer, message)) {
+                        context.discard();
+                        return;
+                    }
+
                     String body = new String(message.body(), StandardCharsets.UTF_8);
 
                     Order order;
@@ -107,6 +112,28 @@ public class Main {
         }));
 
         new CountDownLatch(1).await();
+    }
+
+    private static boolean verified(Signer signer, Message message) {
+        Object from = message.property("from");
+        Object signature = message.property("signature");
+
+        if (from == null) {
+            System.out.println(" [!] Evento sem produtor, descartando");
+            return false;
+        }
+
+        if (signature == null) {
+            System.out.println(" [!] Evento sem assinatura de " + from + ", descartando");
+            return false;
+        }
+
+        if (!signer.verify(from.toString(), signature.toString(), message.body())) {
+            System.out.println(" [!] Assinatura invalida de " + from + ", descartando");
+            return false;
+        }
+
+        return true;
     }
 
     private static String routingKey(Message message) {

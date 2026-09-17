@@ -38,6 +38,8 @@ func run() error {
 
 	SetupLogger(settings.LogLevel)
 
+	verifier := NewVerifier(settings)
+
 	env := rmq.NewEnvironment(settings.BrokerURI, nil)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -106,7 +108,27 @@ func run() error {
 			continue
 		}
 
+		from, ok := message.ApplicationProperties["from"].(string)
+		if !ok {
+			slog.Error("Received message with no 'from' property")
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
+
+		sig, ok := message.ApplicationProperties["signature"].(string)
+		if !ok {
+			slog.Error("Received message with no signature")
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
+
 		data := message.Data[0]
+
+		if err := verifier.Verify(from, sig, data); err != nil {
+			slog.Error("Received message with invalid signature", "from", from, "error", err)
+			_ = delivery.Discard(ctx, nil)
+			continue
+		}
 
 		promotion, err := ParsePromotion(data)
 		if err != nil {
@@ -115,7 +137,11 @@ func run() error {
 			continue
 		}
 
-		println("Client A received promotion category for", promotion.Category, "| discount:", promotion.Discount, "| valid until:", promotion.ValidUntil)
+		fmt.Println("Cliente C1 | Promoção:", promotion.ProductName,
+			"("+promotion.ProductId+")",
+			"| categoria:", promotion.Category,
+			"| desconto:", promotion.Discount,
+			"| válida até:", promotion.ValidUntil)
 
 		err = delivery.Accept(ctx)
 		if err != nil {

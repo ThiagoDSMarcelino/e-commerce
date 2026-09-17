@@ -6,9 +6,11 @@ import (
 )
 
 type Promotion struct {
-	Category   string `json:"category"`
-	Discount   int    `json:"discount"`
-	ValidUntil string `json:"validUntil"`
+	ProductId   string `json:"productId"`
+	ProductName string `json:"productName"`
+	Category    string `json:"category"`
+	Discount    int    `json:"discount"`
+	ValidUntil  string `json:"validUntil"`
 }
 
 func ParsePromotion(data []byte) (*Promotion, error) {

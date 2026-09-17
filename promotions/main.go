@@ -23,9 +23,10 @@ const (
 	validityDays = 30
 )
 
-const routingKeyPromotions = "promocao.categoria"
-
-var categories = []string{"A", "B", "C"}
+const (
+	routingKeyPromotions = "promocao.categoria"
+	catalogFile          = "products.json"
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -50,6 +51,16 @@ func run() error {
 
 	SetupLogger(settings.LogLevel)
 
+	catalog, err := LoadCatalog(catalogFile)
+	if err != nil {
+		return fmt.Errorf("Failed to load catalog: %v", err)
+	}
+
+	signer, err := NewSigner(settings)
+	if err != nil {
+		return fmt.Errorf("Failed to create signer: %v", err)
+	}
+
 	env := rmq.NewEnvironment(settings.BrokerURI, nil)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -71,16 +82,18 @@ func run() error {
 	defer func() { _ = publisher.Close(context.Background()) }()
 
 	for {
-		category := categories[rand.IntN(len(categories))]
+		product := catalog[rand.IntN(len(catalog))]
 
-		slog.Info("Creating promotion", "category", category)
+		slog.Info("Creating promotion", "product", product.Id, "category", product.Category)
 
-		routingKey := routingKeyPromotions + "." + category
+		routingKey := routingKeyPromotions + "." + product.Category
 
 		promotion := &Promotion{
-			Category:   category,
-			Discount:   rand.IntN(maxDiscount-minDiscount+1) + minDiscount,
-			ValidUntil: time.Now().AddDate(0, 0, validityDays).Format(time.DateOnly),
+			ProductId:   product.Id,
+			ProductName: product.Name,
+			Category:    product.Category,
+			Discount:    rand.IntN(maxDiscount-minDiscount+1) + minDiscount,
+			ValidUntil:  time.Now().AddDate(0, 0, validityDays).Format(time.DateOnly),
 		}
 
 		payload, err := promotion.Serialize()
@@ -96,6 +109,17 @@ func run() error {
 		if err != nil {
 			slog.Error("Failed to create message", "error", err)
 			continue
+		}
+
+		sig, err := signer.Sign(payload)
+		if err != nil {
+			slog.Error("Failed to sign promotion", "error", err)
+			continue
+		}
+
+		outcomeMsg.ApplicationProperties = map[string]any{
+			"from":      settings.ServiceName,
+			"signature": sig,
 		}
 
 		res, err := publisher.Publish(ctx, outcomeMsg)
@@ -119,7 +143,7 @@ func run() error {
 		}
 
 		delay := rand.IntN(maxDelaySeconds-minDelaySeconds+1) + minDelaySeconds
-		slog.Debug("Promotion sent", "category", category, "delay", delay)
+		slog.Debug("Promotion sent", "product", product.Id, "category", product.Category, "delay", delay)
 
 		select {
 		case <-ctx.Done():
