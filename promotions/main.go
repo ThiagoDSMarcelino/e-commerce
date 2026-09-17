@@ -17,6 +17,10 @@ import (
 const (
 	maxDelaySeconds = 5
 	minDelaySeconds = 1
+
+	minDiscount  = 5
+	maxDiscount  = 30
+	validityDays = 30
 )
 
 const routingKeyPromotions = "promocao.categoria"
@@ -55,7 +59,7 @@ func run() error {
 		_ = env.CloseConnections(context.Background())
 	}()
 
-	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: settings.ExchangeName})
+	_, err = conn.Management().DeclareExchange(ctx, &rmq.TopicExchangeSpecification{Name: settings.ExchangeName})
 	if err != nil {
 		return fmt.Errorf("Failed to declare an exchange: %v", err)
 	}
@@ -73,7 +77,19 @@ func run() error {
 
 		routingKey := routingKeyPromotions + "." + category
 
-		outcomeMsg, err := rmq.NewMessageWithAddress([]byte(`{}`), &rmq.ExchangeAddress{
+		promotion := &Promotion{
+			Category:   category,
+			Discount:   rand.IntN(maxDiscount-minDiscount+1) + minDiscount,
+			ValidUntil: time.Now().AddDate(0, 0, validityDays).Format(time.DateOnly),
+		}
+
+		payload, err := promotion.Serialize()
+		if err != nil {
+			slog.Error("Failed to serialize promotion", "error", err)
+			continue
+		}
+
+		outcomeMsg, err := rmq.NewMessageWithAddress(payload, &rmq.ExchangeAddress{
 			Exchange: settings.ExchangeName,
 			Key:      routingKey,
 		})

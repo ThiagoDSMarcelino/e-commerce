@@ -1,0 +1,79 @@
+{
+  "products": [
+    {
+      "id": "PAP-001",
+      "name": "Caderno universitario 96 folhas",
+      "amount": 120
+    },
+    {
+      "id": "PAP-002",
+      "name": "Caneta esferografica azul",
+      "amount": 492
+    },
+    {
+      "id": "PAP-003",
+      "name": "Caneta esferografica preta",
+      "amount": 480
+    },
+    {
+      "id": "PAP-004",
+      "name": "Lapis preto HB",
+      "amount": 348
+    },
+    {
+      "id": "PAP-005",
+      "name": "Borracha branca",
+      "amount": 200
+    },
+    {
+      "id": "PAP-006",
+      "name": "Apontador com deposito",
+      "amount": 150
+    },
+    {
+      "id": "PAP-007",
+      "name": "Regua acrilica 30cm",
+      "amount": 90
+    },
+    {
+      "id": "PAP-008",
+      "name": "Cola bastao 20g",
+      "amount": 110
+    },
+    {
+      "id": "PAP-009",
+      "name": "Tesoura escolar sem ponta",
+      "amount": 75
+    },
+    {
+      "id": "PAP-010",
+      "name": "Caixa de lapis de cor 12 cores",
+      "amount": 60
+    },
+    {
+      "id": "PAP-011",
+      "name": "Marca texto amarelo",
+      "amount": 140
+    },
+    {
+      "id": "PAP-012",
+      "name": "Papel sulfite A4 500 folhas",
+      "amount": 45
+    },
+    {
+      "id": "PAP-013",
+      "name": "Pasta catalogo 50 envelopes",
+      "amount": 40
+    },
+    {
+      "id": "PAP-014",
+      "name": "Grampeador 26/6",
+      "amount": 35
+    },
+    {
+      "id": "PAP-015",
+      "name": "Post-it 76x76mm",
+      "amount": 95
+    }
+  ]
+}
