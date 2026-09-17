@@ -130,44 +130,34 @@ func (b *Broker) Publish(ctx context.Context, routingKey string, message []byte)
 	}
 }
 
-// routingKeyFromAddress extracts the routing key from the AMQP 1.0 "to" address
-// that rmq.ExchangeAddress produces, e.g. "/exchanges/e_commerce/pedido.criado".
-// The client percent-encodes both segments, so neither the exchange name nor the
-// key can hold a literal '/': everything after the third '/' is the key.
 func routingKeyFromAddress(address string) string {
 	const prefix = "/exchanges/"
 
 	if !strings.HasPrefix(address, prefix) {
-		return "" // a queue address, or something else entirely
+		return ""
 	}
 
-	rest := address[len(prefix):] // "<exchange>/<key>"
+	rest := address[len(prefix):]
 
-	separator := strings.Index(rest, "/")
-	if separator < 0 {
-		return "" // published to the exchange without a routing key
+	_, after, ok := strings.Cut(rest, "/")
+	if !ok {
+		return ""
 	}
 
-	encodedKey := rest[separator+1:]
+	encodedKey := after
 	if encodedKey == "" {
 		return ""
 	}
 
-	// PathUnescape, not QueryUnescape: the encoder emits %20 for a space and %2B
-	// for a literal '+', so a '+' must not be decoded back into a space.
 	key, err := url.PathUnescape(encodedKey)
 	if err != nil {
 		slog.Warn("Failed to decode routing key", "address", address, "error", err)
-		return encodedKey // best effort: unescaped keys are already literal
+		return encodedKey
 	}
 
 	return key
 }
 
-// routingKeyOf resolves the routing key of a received message. Every publisher in
-// this system is an AMQP 1.0 client addressing the exchange through Properties.To;
-// RabbitMQ fills Properties.Subject with the routing key only for messages that
-// came from an AMQP 0.9.1 publisher, so Subject is the fallback.
 func routingKeyOf(to, subject *string) string {
 	if to != nil {
 		if key := routingKeyFromAddress(*to); key != "" {
