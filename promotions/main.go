@@ -17,6 +17,10 @@ import (
 const (
 	maxDelaySeconds = 10
 	minDelaySeconds = 5
+
+	minDiscount  = 5
+	maxDiscount  = 30
+	validityDays = 30
 )
 
 const routingKeyPromotions = "promocao.categoria"
@@ -73,7 +77,19 @@ func run() error {
 
 		routingKey := routingKeyPromotions + "." + category
 
-		outcomeMsg, err := rmq.NewMessageWithAddress([]byte(`{}`), &rmq.ExchangeAddress{
+		promotion := &Promotion{
+			Category:   category,
+			Discount:   rand.IntN(maxDiscount-minDiscount+1) + minDiscount,
+			ValidUntil: time.Now().AddDate(0, 0, validityDays).Format(time.DateOnly),
+		}
+
+		payload, err := promotion.Serialize()
+		if err != nil {
+			slog.Error("Failed to serialize promotion", "error", err)
+			continue
+		}
+
+		outcomeMsg, err := rmq.NewMessageWithAddress(payload, &rmq.ExchangeAddress{
 			Exchange: settings.ExchangeName,
 			Key:      routingKey,
 		})
