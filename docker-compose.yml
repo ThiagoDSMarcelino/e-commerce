@@ -141,8 +141,20 @@ services:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
       EXCHANGE_NAME: promotions
       LOG_LEVEL: debug
-      SERVICE_NAME: promotions-client-a
       QUEUE_NAME: fila.c1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  client-b:
+    build: ./promotions-client-b
+    container_name: promotions-client-b
+    restart: unless-stopped
+    environment:
+      BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
+      EXCHANGE_NAME: promotions
+      LOG_LEVEL: debug
+      QUEUE_NAME: fila.c2
     depends_on:
       rabbitmq:
         condition: service_healthy

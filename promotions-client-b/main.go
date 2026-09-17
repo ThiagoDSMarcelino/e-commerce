@@ -13,7 +13,7 @@ import (
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
-var bindingKeys = []string{"promocao.categoria.A", "promocao.categoria.B"}
+var bindingKeys = []string{"promocao.categoria.*"}
 
 func main() {
 	if err := run(); err != nil {
@@ -115,7 +115,7 @@ func run() error {
 			continue
 		}
 
-		println("Client A received promotion category for", promotion.Category, "| discount:", promotion.Discount, "| valid until:", promotion.ValidUntil)
+		println("Client B received promotion category for", promotion.Category, "| discount:", promotion.Discount, "| valid until:", promotion.ValidUntil)
 
 		err = delivery.Accept(ctx)
 		if err != nil {
