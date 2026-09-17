@@ -28,7 +28,7 @@ services:
     command:
       - |
         set -e
-        for s in payments promotions shipping; do
+        for s in main payments promotions shipping; do
           if [ ! -f /keys/$$s.pem ]; then
             echo "gerando chaves para $$s"
             openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /keys/$$s.pem
@@ -36,6 +36,27 @@ services:
           fi
         done
         chmod 644 /keys/*
+
+  main:
+    build: ./main
+    container_name: main-worker
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    environment:
+      BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
+      EXCHANGE_NAME: e_commerce
+      LOG_LEVEL: debug
+      SERVICE_NAME: main
+      KEYS_DIR: /keys
+      QUEUE_NAME: fila.principal
+    volumes:
+      - keys:/keys:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      keygen:
+        condition: service_completed_successfully
 
   payments:
     build: ./payments
