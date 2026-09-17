@@ -133,6 +133,20 @@ services:
       keygen:
         condition: service_completed_successfully
 
+  client-a:
+    build: ./promotions-client-a
+    container_name: promotions-client-a
+    restart: unless-stopped
+    environment:
+      BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
+      EXCHANGE_NAME: promotions
+      LOG_LEVEL: debug
+      SERVICE_NAME: promotions-client-a
+      QUEUE_NAME: fila.c1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   rabbitmq_data:
   rabbitmq_logs:
