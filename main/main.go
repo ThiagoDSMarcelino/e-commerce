@@ -325,18 +325,30 @@ func delete_order(ctx context.Context, broker *Broker, readLine readFunc) (bool,
 	fmt.Println("--------------------------------")
 	print_orders(list)
 	fmt.Println("--------------------------------")
-	fmt.Println("Id do pedido que deseja excluir (vazio para cancelar):")
+	fmt.Println("Qual pedido que deseja excluir (vazio para cancelar):")
 
 	input, quit, err := readLine()
 	if quit {
 		return true, err
 	}
 
-	id := strings.TrimSpace(input)
-	if id == "" {
-		fmt.Println("Operação cancelada")
+	input = strings.TrimSpace(input)
+	if input == "" {
 		return false, nil
 	}
+
+	index, convErr := strconv.Atoi(input)
+	if convErr != nil {
+		fmt.Println("Input inválido")
+		return false, nil
+	}
+
+	if index < 1 || index > len(products) {
+		fmt.Println("Ordem inválida")
+		return false, nil
+	}
+
+	id := list[index-1].Order.Id
 
 	order, ok := orders.Remove(id)
 	if !ok {
