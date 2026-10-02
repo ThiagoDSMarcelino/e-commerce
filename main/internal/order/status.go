@@ -1,4 +1,4 @@
-package order
+package orders
 
 type OrderStatus string
 

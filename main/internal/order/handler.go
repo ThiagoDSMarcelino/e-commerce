@@ -1,27 +1,75 @@
-package order
+package orders
 
 import (
 	"context"
+	repo "main/internal/adapters/postgresql/sqlc"
 	"main/internal/platform/rabbitmq"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-type OrderHandler struct {
-	repo *OrdersRepository
-	rmq  *rabbitmq.Broker
+type Handler struct {
+	srv Service
+	rmq *rabbitmq.Broker
 }
 
-func NewOrderHandler(repo *OrdersRepository, rmq *rabbitmq.Broker) *OrderHandler {
-	return &OrderHandler{repo: repo, rmq: rmq}
+type ordersResponse struct {
+	Items []repo.Order `json:"items"`
+	Total int64        `json:"total"`
+	Page  int32        `json:"page"`
 }
 
-func (s *OrderHandler) GetOrders(c *gin.Context) {
-	list := s.repo.GetAll()
-	c.IndentedJSON(http.StatusOK, list)
+type pagination struct {
+	Size int32 `form:"size,default=10" binding:"min=1,max=100"`
+	Page int32 `form:"page,default=1" binding:"min=1"`
 }
 
+func NewHandler(srv Service) *Handler {
+	return &Handler{srv: srv, rmq: nil}
+}
+
+func (s *Handler) GetOrders(c *gin.Context) {
+	var p pagination
+	if err := c.ShouldBindQuery(&p); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	list, err := s.srv.ListProducts(c.Request.Context(), p.Page, p.Size)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	count, err := s.srv.Count(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	res := ordersResponse{
+		Items: list,
+		Total: count,
+		Page:  p.Size,
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
+// const (
+// 	routingKeyCreated = "pedido.criado"
+// 	routingKeyDeleted = "pedido.excluido"
+// )
+//
+// var bindingKeys = []string{
+// 	"pagamento.aprovado",
+// 	"pagamento.recusado",
+// 	"pedido.enviado",
+// 	"pedido.estoque_ok",
+// 	"estoque.indisponivel",
+// }
+//
 // func createOrder(ctx context.Context, broker *Broker) error {
 // 	var items []ProductRequest
 //
@@ -118,7 +166,7 @@ func (s *OrderHandler) GetOrders(c *gin.Context) {
 // 	return false, nil
 // }
 
-func (h *OrderHandler) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse {
+func (h *Handler) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse {
 	// 	order, err := ParseOrder(event.Data)
 	// 	if err != nil {
 	// 		slog.Error("Failed to parse order", "routingKey", event.RoutingKey, "error", err)
