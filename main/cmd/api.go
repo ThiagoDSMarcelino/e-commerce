@@ -34,11 +34,12 @@ func (app *Application) Mount() http.Handler {
 	r.Use(gin.Recovery())
 	r.Use(timeout(60 * time.Second))
 
-	ordersService := orders.NewService(repo.New(app.db))
+	ordersService := orders.NewService(repo.New(app.db), app.db)
 
 	ordersHandler := orders.NewHandler(ordersService)
 
 	r.GET("/orders", ordersHandler.GetOrders)
+	r.POST("/orders", ordersHandler.CreateOrder)
 
 	return r
 }

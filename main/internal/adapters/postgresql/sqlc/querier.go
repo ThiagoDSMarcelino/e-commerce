@@ -6,10 +6,15 @@ package repo
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	Count(ctx context.Context) (int64, error)
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
+	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
+	ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtype.UUID) ([]OrderItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 }
 

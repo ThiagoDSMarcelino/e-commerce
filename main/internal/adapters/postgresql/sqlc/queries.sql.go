@@ -7,6 +7,8 @@ package repo
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const count = `-- name: Count :one
@@ -20,10 +22,82 @@ func (q *Queries) Count(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createOrder = `-- name: CreateOrder :one
+INSERT INTO orders (
+    id,
+    client_id,
+    status
+) VALUES ($1, $2, $3) RETURNING id, client_id, created_at, status
+`
+
+type CreateOrderParams struct {
+	ID       pgtype.UUID `db:"id"`
+	ClientID int64       `db:"client_id"`
+	Status   string      `db:"status"`
+}
+
+func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
+	row := q.db.QueryRow(ctx, createOrder, arg.ID, arg.ClientID, arg.Status)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.CreatedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
+const createOrderItem = `-- name: CreateOrderItem :one
+INSERT INTO order_items (
+    order_id,
+    product_id,
+    quantity
+) VALUES ($1, $2, $3) RETURNING order_id, product_id, quantity
+`
+
+type CreateOrderItemParams struct {
+	OrderID   pgtype.UUID `db:"order_id"`
+	ProductID pgtype.UUID `db:"product_id"`
+	Quantity  int32       `db:"quantity"`
+}
+
+func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error) {
+	row := q.db.QueryRow(ctx, createOrderItem, arg.OrderID, arg.ProductID, arg.Quantity)
+	var i OrderItem
+	err := row.Scan(&i.OrderID, &i.ProductID, &i.Quantity)
+	return i, err
+}
+
+const listOrderItemsByOrderIDs = `-- name: ListOrderItemsByOrderIDs :many
+SELECT order_id, product_id, quantity FROM order_items
+WHERE order_id = ANY($1::uuid[])
+`
+
+func (q *Queries) ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtype.UUID) ([]OrderItem, error) {
+	rows, err := q.db.Query(ctx, listOrderItemsByOrderIDs, orderIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrderItem
+	for rows.Next() {
+		var i OrderItem
+		if err := rows.Scan(&i.OrderID, &i.ProductID, &i.Quantity); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrders = `-- name: ListOrders :many
 SELECT id, client_id, created_at, status FROM orders
-LIMIT $2
-OFFSET $1
+ORDER BY created_at DESC, id DESC
+LIMIT $2 OFFSET $1
 `
 
 type ListOrdersParams struct {

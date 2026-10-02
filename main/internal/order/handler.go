@@ -2,8 +2,7 @@ package orders
 
 import (
 	"context"
-	repo "main/internal/adapters/postgresql/sqlc"
-	"main/internal/platform/rabbitmq"
+	"main/internal/adapters/rabbitmq"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,50 +10,54 @@ import (
 
 type Handler struct {
 	srv Service
-	rmq *rabbitmq.Broker
-}
-
-type ordersResponse struct {
-	Items []repo.Order `json:"items"`
-	Total int64        `json:"total"`
-	Page  int32        `json:"page"`
-}
-
-type pagination struct {
-	Size int32 `form:"size,default=10" binding:"min=1,max=100"`
-	Page int32 `form:"page,default=1" binding:"min=1"`
 }
 
 func NewHandler(srv Service) *Handler {
-	return &Handler{srv: srv, rmq: nil}
+	return &Handler{srv: srv}
 }
 
-func (s *Handler) GetOrders(c *gin.Context) {
+func (h *Handler) GetOrders(c *gin.Context) {
 	var p pagination
 	if err := c.ShouldBindQuery(&p); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	list, err := s.srv.ListProducts(c.Request.Context(), p.Page, p.Size)
+	list, err := h.srv.ListOrders(c.Request.Context(), p.Page, p.Size)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	count, err := s.srv.Count(c.Request.Context())
+	count, err := h.srv.Count(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	res := ordersResponse{
+	res := OrderList{
 		Items: list,
 		Total: count,
 		Page:  p.Size,
 	}
 
 	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) CreateOrder(c *gin.Context) {
+	var req createOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.srv.PlaceOrder(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
 }
 
 // const (
