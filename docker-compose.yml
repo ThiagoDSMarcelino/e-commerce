@@ -29,35 +29,24 @@ services:
       - |
         set -e
         SERVICES="main payments promotions shipping storage"
-        CONSUMERS="promotions-client-a promotions-client-b"
 
         for s in $$SERVICES; do
           mkdir -p /repo/$$s/keys
           if [ ! -f /repo/$$s/keys/$$s.pem ]; then
-            echo "gerando par de chaves para $$s"
             openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /repo/$$s/keys/$$s.pem
             openssl pkey -in /repo/$$s/keys/$$s.pem -pubout -out /repo/$$s/keys/$$s.pub
           fi
-          # bind mount do Windows costuma ignorar chmod; nao pode derrubar o keygen
           chmod 600 /repo/$$s/keys/$$s.pem || true
         done
 
-        for c in $$CONSUMERS; do
-          mkdir -p /repo/$$c/keys
-        done
-
-        # Toda pasta recebe as chaves públicas de todos os microsserviços.
-        for dest in $$SERVICES $$CONSUMERS; do
+        for dest in $$SERVICES; do
           for src in $$SERVICES; do
-            # o proprio .pub ja foi gerado na pasta; copiar sobre si mesmo falha
             if [ "$$src" != "$$dest" ]; then
               cp /repo/$$src/keys/$$src.pub /repo/$$dest/keys/$$src.pub
             fi
           done
           chmod 644 /repo/$$dest/keys/*.pub || true
         done
-
-        echo "chaves distribuidas"
 
   main:
     build: ./main
@@ -150,42 +139,6 @@ services:
     volumes:
       - ./storage/storage.json:/app/storage.json
       - ./storage/keys:/keys:ro
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      keygen:
-        condition: service_completed_successfully
-
-  client-a:
-    build: ./promotions-client-a
-    container_name: promotions-client-a
-    restart: unless-stopped
-    environment:
-      BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
-      EXCHANGE_NAME: Promocoes
-      LOG_LEVEL: debug
-      QUEUE_NAME: fila.c1
-      KEYS_DIR: /keys
-    volumes:
-      - ./promotions-client-a/keys:/keys:ro
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      keygen:
-        condition: service_completed_successfully
-
-  client-b:
-    build: ./promotions-client-b
-    container_name: promotions-client-b
-    restart: unless-stopped
-    environment:
-      BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
-      EXCHANGE_NAME: Promocoes
-      LOG_LEVEL: debug
-      QUEUE_NAME: fila.c2
-      KEYS_DIR: /keys
-    volumes:
-      - ./promotions-client-b/keys:/keys:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
