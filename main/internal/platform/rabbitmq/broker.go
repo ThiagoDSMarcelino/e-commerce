@@ -1,10 +1,12 @@
-package main
+package rabbitmq
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"main/internal/config"
+	"main/internal/signing"
 	"net/url"
 	"strings"
 
@@ -16,7 +18,7 @@ type Broker struct {
 	publisher    *rmq.Publisher
 	consumer     *rmq.Consumer
 	exchangeName string
-	signer       *Signer
+	signer       *signing.Signer
 	serviceName  string
 }
 
@@ -30,14 +32,14 @@ const (
 
 var ErrUnroutable = errors.New("Message was not routed to any queue")
 
-func NewBroker(ctx context.Context, settings *Settings, signer *Signer, bindingKeys []string) (*Broker, error) {
-	env := rmq.NewEnvironment(settings.BrokerURI, nil)
+func NewBroker(ctx context.Context, config *config.Config, signer *signing.Signer, bindingKeys []string) (*Broker, error) {
+	env := rmq.NewEnvironment(config.BrokerURI, nil)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to RabbitMQ: %v", err)
 	}
 
-	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: settings.ExchangeName})
+	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: config.ExchangeName})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to declare an exchange: %v", err)
 	}
@@ -47,15 +49,15 @@ func NewBroker(ctx context.Context, settings *Settings, signer *Signer, bindingK
 		return nil, fmt.Errorf("Failed to create publisher: %v", err)
 	}
 
-	_, err = conn.Management().DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: settings.QueueName})
+	_, err = conn.Management().DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: config.QueueName})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to declare a queue: %v", err)
 	}
 
 	for _, bk := range bindingKeys {
 		_, err = conn.Management().Bind(ctx, &rmq.ExchangeToQueueBindingSpecification{
-			SourceExchange:   settings.ExchangeName,
-			DestinationQueue: settings.QueueName,
+			SourceExchange:   config.ExchangeName,
+			DestinationQueue: config.QueueName,
 			BindingKey:       bk,
 		})
 		if err != nil {
@@ -63,7 +65,7 @@ func NewBroker(ctx context.Context, settings *Settings, signer *Signer, bindingK
 		}
 	}
 
-	consumer, err := conn.NewConsumer(ctx, settings.QueueName, &rmq.ConsumerOptions{
+	consumer, err := conn.NewConsumer(ctx, config.QueueName, &rmq.ConsumerOptions{
 		InitialCredits: 1, // One message at a time
 	})
 	if err != nil {
@@ -75,8 +77,8 @@ func NewBroker(ctx context.Context, settings *Settings, signer *Signer, bindingK
 		publisher:    publisher,
 		consumer:     consumer,
 		signer:       signer,
-		serviceName:  settings.ServiceName,
-		exchangeName: settings.ExchangeName,
+		serviceName:  config.ServiceName,
+		exchangeName: config.ExchangeName,
 	}, nil
 }
 

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Settings struct {
+type Config struct {
 	BrokerURI    string
 	ExchangeName string
 	LogLevel     slog.Level
@@ -19,7 +19,7 @@ type Settings struct {
 	QueueName    string
 }
 
-func LoadSettings() (*Settings, error) {
+func Load() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		slog.Warn("no .env file found, using environment variables")
 	}
@@ -54,7 +54,7 @@ func LoadSettings() (*Settings, error) {
 		return nil, errors.New("QUEUE_NAME is not set or is empty")
 	}
 
-	return &Settings{
+	return &Config{
 		BrokerURI:    brokerURI,
 		ExchangeName: exchangeName,
 		LogLevel:     logLevel,

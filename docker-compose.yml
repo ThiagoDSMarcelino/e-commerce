@@ -61,10 +61,9 @@ services:
 
   main:
     build: ./main
-    container_name: main-worker
+    container_name: main-api
     restart: unless-stopped
-    stdin_open: true
-    tty: true
+    stop_grace_period: 20s
     environment:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
       EXCHANGE_NAME: eCommerce
@@ -72,6 +71,8 @@ services:
       SERVICE_NAME: main
       KEYS_DIR: /keys
       QUEUE_NAME: fila.principal
+    ports:
+      - "8080:8080"
     volumes:
       - ./main/keys:/keys:ro
     depends_on:

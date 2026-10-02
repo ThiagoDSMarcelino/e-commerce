@@ -7,13 +7,12 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /promotions .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /main ./cmd/api
 
 FROM alpine:3.22
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /promotions /promotions
-COPY --from=builder /app/products.json ./products.json
+COPY --from=builder /main /main
 
-ENTRYPOINT ["/promotions"]
+ENTRYPOINT ["/main"]

@@ -1,4 +1,4 @@
-package main
+package rabbitmq
 
 import (
 	"encoding/json"
@@ -11,13 +11,13 @@ type ProductRequest struct {
 	Amount int    `json:"amount"`
 }
 
-type Order struct {
+type OrderEvent struct {
 	Id       string           `json:"id"`
 	Products []ProductRequest `json:"products"`
 }
 
-func ParseOrder(data []byte) (*Order, error) {
-	var order Order
+func ParseOrder(data []byte) (*OrderEvent, error) {
+	var order OrderEvent
 
 	err := json.Unmarshal(data, &order)
 	if err != nil {
@@ -27,7 +27,7 @@ func ParseOrder(data []byte) (*Order, error) {
 	return &order, nil
 }
 
-func (o *Order) Serialize() ([]byte, error) {
+func (o *OrderEvent) Serialize() ([]byte, error) {
 	payload, err := json.Marshal(o)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to marshal order: %v", err)
