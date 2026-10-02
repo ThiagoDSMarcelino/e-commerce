@@ -23,3 +23,9 @@ INSERT INTO order_items (
     product_id,
     quantity
 ) VALUES ($1, $2, $3) RETURNING *;
+
+
+-- name: UpdateOrderStatus :exec
+UPDATE orders
+SET status = sqlc.arg('status')
+WHERE id = sqlc.arg('order_id')::uuid;

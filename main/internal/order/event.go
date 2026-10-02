@@ -1,8 +1,9 @@
-package rabbitmq
+package orders
 
 import (
 	"encoding/json"
 	"fmt"
+	"uuid"
 )
 
 type ProductRequest struct {
@@ -12,11 +13,11 @@ type ProductRequest struct {
 }
 
 type OrderEvent struct {
-	Id       string           `json:"id"`
+	Id       uuid.UUID        `json:"id"`
 	Products []ProductRequest `json:"products"`
 }
 
-func ParseOrder(data []byte) (*OrderEvent, error) {
+func parseOrderEvent(data []byte) (*OrderEvent, error) {
 	var order OrderEvent
 
 	err := json.Unmarshal(data, &order)

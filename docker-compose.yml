@@ -79,7 +79,7 @@ services:
       SERVICE_NAME: main
       KEYS_DIR: /keys
       QUEUE_NAME: fila.principal
-      GOOSE_DBSTRING: "host=localhost user=postgres password=postgres dbname=ecommerce sslmode=disable"
+      GOOSE_DBSTRING: "host=postgresql user=postgres password=postgres dbname=ecommerce sslmode=disable"
       GOOSE_DRIVER: postgres
       GOOSE_MIGRATION_DIR: ./internal/adapters/postgresql/migrations
     ports:

@@ -16,6 +16,7 @@ type Querier interface {
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtype.UUID) ([]OrderItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error
 }
 
 var _ Querier = (*Queries)(nil)

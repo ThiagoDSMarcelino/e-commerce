@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	repo "main/internal/adapters/postgresql/sqlc"
+	"main/internal/adapters/rabbitmq"
 	"main/internal/config"
 	orders "main/internal/order"
 	"net/http"
@@ -17,14 +18,14 @@ import (
 type Application struct {
 	config *config.Config
 	db     *pgx.Conn
+	rmq    *rabbitmq.Broker
 }
 
-func NewApplication(config *config.Config, conn *pgx.Conn) *Application {
-	return &Application{config: config, db: conn}
-
+func NewApplication(config *config.Config, conn *pgx.Conn, broker *rabbitmq.Broker) *Application {
+	return &Application{config: config, db: conn, rmq: broker}
 }
 
-func (app *Application) Mount() http.Handler {
+func (app *Application) Mount(ctx context.Context) http.Handler {
 	r := gin.New()
 
 	r.SetTrustedProxies(nil)
@@ -34,7 +35,17 @@ func (app *Application) Mount() http.Handler {
 	r.Use(gin.Recovery())
 	r.Use(timeout(60 * time.Second))
 
-	ordersService := orders.NewService(repo.New(app.db), app.db)
+	ordersService := orders.NewService(repo.New(app.db), app.db, app.rmq)
+
+	go func() {
+		err := app.rmq.Consume(ctx, func(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse {
+			return ordersService.HandleStatusEvent(ctx, event)
+		})
+
+		if err != nil {
+			slog.Error("consumer error", "error", err)
+		}
+	}()
 
 	ordersHandler := orders.NewHandler(ordersService)
 
