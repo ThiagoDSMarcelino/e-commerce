@@ -1,4 +1,4 @@
-package main
+package signing
 
 import (
 	"crypto"
@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"promotions/internal/config"
 )
 
 type Signer struct {
@@ -15,14 +16,14 @@ type Signer struct {
 	pubs    map[string]*rsa.PublicKey
 }
 
-func NewSigner(settings *Settings) (*Signer, error) {
-	priv, err := loadPrivateKey(settings.KeysDir, settings.ServiceName)
+func NewSigner(config *config.Settings) (*Signer, error) {
+	priv, err := loadPrivateKey(config.Signing.KeysDir, config.Signing.ServiceName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Signer{
-		keysDir: settings.KeysDir,
+		keysDir: config.Signing.KeysDir,
 		priv:    priv,
 		pubs:    map[string]*rsa.PublicKey{},
 	}, nil

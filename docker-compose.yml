@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
     environment:
       BROKER_URI: amqp://admin:securepassword123@rabbitmq:5672/
-      EXCHANGE_NAME: Promocoes
+      EXCHANGE_NAME: eCommerce
       LOG_LEVEL: debug
       SERVICE_NAME: promotions
       KEYS_DIR: /keys

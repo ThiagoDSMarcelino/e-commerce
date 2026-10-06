@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"errors"
@@ -6,17 +6,41 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
-type Settings struct {
+type RabbitSettings struct {
 	BrokerURI    string
 	ExchangeName string
-	LogLevel     slog.Level
-	ServiceName  string
-	KeysDir      string
+	QueueName    string
+}
+
+type ResendSettings struct {
+	ApiKey string
+}
+
+type LogSettings struct {
+	Level slog.Level
+}
+
+type SigningSettings struct {
+	ServiceName string
+	KeysDir     string
+}
+
+type Settings struct {
+	Rmq     RabbitSettings
+	Resend  ResendSettings
+	Log     LogSettings
+	Signing SigningSettings
 }
 
 func LoadSettings() (*Settings, error) {
+	if err := godotenv.Load(); err != nil {
+		slog.Warn("no .env file found, using environment variables")
+	}
+
 	brokerURI := os.Getenv("BROKER_URI")
 	if brokerURI == "" {
 		return nil, errors.New("BROKER_URI is not set or is empty")
@@ -42,12 +66,32 @@ func LoadSettings() (*Settings, error) {
 		return nil, errors.New("KEYS_DIR is not set or is empty")
 	}
 
+	queueName := os.Getenv("QUEUE_NAME")
+	if queueName == "" {
+		return nil, errors.New("QUEUE_NAME is not set or is empty")
+	}
+
+	resendApiKey := os.Getenv("RESEND_API_KEY")
+	if queueName == "" {
+		return nil, errors.New("RESEND_API_KEY is not set or is empty")
+	}
+
 	return &Settings{
-		BrokerURI:    brokerURI,
-		ExchangeName: exchangeName,
-		LogLevel:     logLevel,
-		ServiceName:  serviceName,
-		KeysDir:      keysDir,
+		Rmq: RabbitSettings{
+			BrokerURI:    brokerURI,
+			ExchangeName: exchangeName,
+			QueueName:    queueName,
+		},
+		Log: LogSettings{
+			Level: logLevel,
+		},
+		Signing: SigningSettings{
+			ServiceName: serviceName,
+			KeysDir:     keysDir,
+		},
+		Resend: ResendSettings{
+			resendApiKey,
+		},
 	}, nil
 }
 
