@@ -11,11 +11,13 @@ import (
 )
 
 type Querier interface {
-	Count(ctx context.Context) (int64, error)
+	CountOrders(ctx context.Context, clientID int64) (int64, error)
+	CountRegistrations(ctx context.Context, clientID int64) (int64, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
 	ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtype.UUID) ([]OrderItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
+	ListRegistredEmail(ctx context.Context, arg ListRegistredEmailParams) ([]PromotionRegistration, error)
 	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error
 }
 

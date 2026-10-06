@@ -15,9 +15,10 @@ type createOrderRequest struct {
 	Items    []orderItemRequest `json:"items"     binding:"required,min=1,dive"`
 }
 
-type pagination struct {
-	Size int32 `form:"size,default=10" binding:"min=1,max=100"`
-	Page int32 `form:"page,default=1" binding:"min=1"`
+type listOrdersQuery struct {
+	ClientID int64 `json:"clientId" binding:"required,gt=0"`
+	Size     int32 `form:"size,default=10" binding:"min=1,max=100"`
+	Page     int32 `form:"page,default=1" binding:"min=1"`
 }
 
 type OrderList struct {
