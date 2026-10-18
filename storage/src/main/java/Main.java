@@ -28,6 +28,9 @@ public class Main {
         Storage storage = new Storage(Path.of(settings.storageFile()));
         Signer signer = new Signer(Path.of(settings.keysDir()), settings.serviceName());
 
+        ProductsApi api = new ProductsApi(storage, settings.port());
+        api.start();
+
         Environment environment = new AmqpEnvironmentBuilder()
                 .connectionSettings()
                 .uri(settings.brokerUri())
@@ -105,6 +108,7 @@ public class Main {
                 .build();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            api.stop();
             consumer.close();
             publisher.close();
             connection.close();

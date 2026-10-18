@@ -33,6 +33,12 @@ public class Storage {
         System.out.println(" [*] Estoque carregado de " + file + " (" + products.size() + " produtos)");
     }
 
+    public synchronized List<Product> available() {
+        return products.values().stream()
+                .filter(product -> product.amount() > 0)
+                .toList();
+    }
+
     public synchronized boolean tryDebit(Order order) {
         if (order.products() == null || order.products().isEmpty()) {
             System.out.println("     [!] pedido sem produtos, reprovado");

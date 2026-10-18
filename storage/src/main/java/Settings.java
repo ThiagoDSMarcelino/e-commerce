@@ -1,5 +1,5 @@
 public record Settings(String brokerUri, String exchangeName, String serviceName, String storageFile,
-        String keysDir) {
+        String keysDir, int port) {
 
     public static Settings load() {
         return new Settings(
@@ -7,7 +7,8 @@ public record Settings(String brokerUri, String exchangeName, String serviceName
                 requireEnv("EXCHANGE_NAME"),
                 requireEnv("SERVICE_NAME"),
                 requireEnv("STORAGE_FILE"),
-                requireEnv("KEYS_DIR"));
+                requireEnv("KEYS_DIR"),
+                Integer.parseInt(requireEnv("PORT")));
     }
 
     private static String requireEnv(String name) {

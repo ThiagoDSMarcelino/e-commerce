@@ -38,6 +38,25 @@ services:
       retries: 5
       start_period: 30s
 
+  storage-db:
+    image: postgres:18
+    container_name: storage-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: estoque
+    ports:
+      - "5433:5432"
+    volumes:
+      - storage-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d estoque"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   keygen:
     image: alpine/openssl
     container_name: keygen
@@ -160,10 +179,13 @@ services:
       SERVICE_NAME: storage
       STORAGE_FILE: /app/storage.json
       KEYS_DIR: /keys
+      PORT: 8080
     volumes:
       - ./storage/storage.json:/app/storage.json
       - ./storage/keys:/keys:ro
     depends_on:
+      storage-db:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       keygen:
@@ -173,3 +195,4 @@ volumes:
   rabbitmq_data:
   rabbitmq_logs:
   postgres-data:
+  storage-db-data:
