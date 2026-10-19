@@ -20,3 +20,10 @@ type OrderItem struct {
 	ProductID pgtype.UUID `db:"product_id"`
 	Quantity  int32       `db:"quantity"`
 }
+
+type PromotionRegistration struct {
+	ID        pgtype.UUID        `db:"id"`
+	ClientID  int64              `db:"client_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at"`
+	Email     string             `db:"email"`
+}

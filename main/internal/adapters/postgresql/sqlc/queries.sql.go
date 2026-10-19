@@ -11,12 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const count = `-- name: Count :one
+const countOrders = `-- name: CountOrders :one
 SELECT count(*) FROM orders
+WHERE client_id = $1
 `
 
-func (q *Queries) Count(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, count)
+func (q *Queries) CountOrders(ctx context.Context, clientID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countOrders, clientID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRegistrations = `-- name: CountRegistrations :one
+SELECT count(*) FROM promotion_registrations
+WHERE client_id = $1
+`
+
+func (q *Queries) CountRegistrations(ctx context.Context, clientID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countRegistrations, clientID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -96,17 +109,19 @@ func (q *Queries) ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtyp
 
 const listOrders = `-- name: ListOrders :many
 SELECT id, client_id, created_at, status FROM orders
-ORDER BY created_at DESC, id DESC
-LIMIT $2 OFFSET $1
+WHERE client_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
 `
 
 type ListOrdersParams struct {
-	Offset int32 `db:"offset"`
-	Limit  int32 `db:"limit"`
+	ClientID int64 `db:"client_id"`
+	Offset   int32 `db:"offset"`
+	Limit    int32 `db:"limit"`
 }
 
 func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error) {
-	rows, err := q.db.Query(ctx, listOrders, arg.Offset, arg.Limit)
+	rows, err := q.db.Query(ctx, listOrders, arg.ClientID, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +134,44 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.ClientID,
 			&i.CreatedAt,
 			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRegistredEmail = `-- name: ListRegistredEmail :many
+SELECT id, client_id, created_at, email FROM promotion_registrations
+WHERE client_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListRegistredEmailParams struct {
+	ClientID int64 `db:"client_id"`
+	Offset   int32 `db:"offset"`
+	Limit    int32 `db:"limit"`
+}
+
+func (q *Queries) ListRegistredEmail(ctx context.Context, arg ListRegistredEmailParams) ([]PromotionRegistration, error) {
+	rows, err := q.db.Query(ctx, listRegistredEmail, arg.ClientID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PromotionRegistration
+	for rows.Next() {
+		var i PromotionRegistration
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClientID,
+			&i.CreatedAt,
+			&i.Email,
 		); err != nil {
 			return nil, err
 		}

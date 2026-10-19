@@ -34,6 +34,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rabbitmq/rabbitmq-amqp-go-client v1.3.0 h1:V9hGLO6wCKtPBEF5NlU1he0/C7X2Dsfa4uM1fXubD0A=
 github.com/rabbitmq/rabbitmq-amqp-go-client v1.3.0/go.mod h1:XFTHmJXOLLoQPuQqvjJNePHlc+Oz73UAkgUpw2L8y5I=
+github.com/resend/resend-go/v4 v4.8.1 h1:C6WAF/kt5+M7O1+8LyGNtFsbhQjbdXfZZOJIqy3/lP8=
+github.com/resend/resend-go/v4 v4.8.1/go.mod h1:96jCV9Fb2HoQAnPOgGXURcbBZxCtLrul8e5iwKJ/E/g=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

@@ -15,19 +15,19 @@ func NewHandler(srv Service) *Handler {
 }
 
 func (h *Handler) GetOrders(c *gin.Context) {
-	var p pagination
-	if err := c.ShouldBindQuery(&p); err != nil {
+	var query listOrdersQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	list, err := h.srv.ListOrders(c.Request.Context(), p.Page, p.Size)
+	list, err := h.srv.ListOrders(c.Request.Context(), query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	count, err := h.srv.Count(c.Request.Context())
+	count, err := h.srv.Count(c.Request.Context(), query.ClientID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -36,7 +36,7 @@ func (h *Handler) GetOrders(c *gin.Context) {
 	res := OrderList{
 		Items: list,
 		Total: count,
-		Page:  p.Size,
+		Page:  query.Page,
 	}
 
 	c.JSON(http.StatusOK, res)

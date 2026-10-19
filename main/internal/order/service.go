@@ -27,8 +27,8 @@ var (
 
 type Service interface {
 	PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWithItems, error)
-	ListOrders(ctx context.Context, page, limit int32) ([]OrderWithItems, error)
-	Count(ctx context.Context) (int64, error)
+	ListOrders(ctx context.Context, data listOrdersQuery) ([]OrderWithItems, error)
+	Count(ctx context.Context, clientId int64) (int64, error)
 	HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse
 }
 
@@ -106,10 +106,11 @@ func (s *svc) PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWit
 	return toOrderWithItems(createdOrder, items), nil
 }
 
-func (s *svc) ListOrders(ctx context.Context, page, limit int32) ([]OrderWithItems, error) {
+func (s *svc) ListOrders(ctx context.Context, data listOrdersQuery) ([]OrderWithItems, error) {
 	orders, err := s.repo.ListOrders(ctx, repo.ListOrdersParams{
-		Offset: (page - 1) * limit,
-		Limit:  limit,
+		ClientID: data.ClientID,
+		Offset:   (data.Page - 1) * data.Size,
+		Limit:    data.Size,
 	})
 	if err != nil {
 		return nil, err
@@ -141,8 +142,8 @@ func (s *svc) ListOrders(ctx context.Context, page, limit int32) ([]OrderWithIte
 	return result, nil
 }
 
-func (s *svc) Count(ctx context.Context) (int64, error) {
-	return s.repo.Count(ctx)
+func (s *svc) Count(ctx context.Context, clientId int64) (int64, error) {
+	return s.repo.CountOrders(ctx, clientId)
 }
 
 func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse {
