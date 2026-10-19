@@ -7,6 +7,8 @@ import (
 	"main/internal/adapters/rabbitmq"
 	"main/internal/config"
 	orders "main/internal/order"
+	"main/internal/products"
+	"main/internal/promotions"
 	"net/http"
 	"time"
 
@@ -51,6 +53,16 @@ func (app *Application) Mount(ctx context.Context) http.Handler {
 
 	r.GET("/orders", ordersHandler.GetOrders)
 	r.POST("/orders", ordersHandler.CreateOrder)
+
+	promotionsHandler := promotions.NewHandler(promotions.NewService(repo.New(app.db), app.rmq))
+
+	r.GET("/promotions", promotionsHandler.ListRegistrations)
+	r.POST("/promotions", promotionsHandler.RegisterSubscription)
+	r.DELETE("/promotions", promotionsHandler.CancelSubscription)
+
+	productsHandler := products.NewHandler(products.NewService(app.config.StorageURL))
+
+	r.GET("/products", productsHandler.ListProducts)
 
 	return r
 }

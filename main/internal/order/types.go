@@ -6,7 +6,7 @@ import (
 )
 
 type orderItemRequest struct {
-	ProductID string `json:"productId" binding:"required,uuid"`
+	ProductID string `json:"productId" binding:"required,max=50"`
 	Quantity  int32  `json:"quantity"   binding:"required,gt=0"`
 }
 
@@ -16,7 +16,7 @@ type createOrderRequest struct {
 }
 
 type listOrdersQuery struct {
-	ClientID int64 `json:"clientId" binding:"required,gt=0"`
+	ClientID int64 `form:"clientId" binding:"required,gt=0"`
 	Size     int32 `form:"size,default=10" binding:"min=1,max=100"`
 	Page     int32 `form:"page,default=1" binding:"min=1"`
 }
@@ -28,8 +28,8 @@ type OrderList struct {
 }
 
 type OrderItem struct {
-	ProductID uuid.UUID `json:"productId"`
-	Quantity  int32     `json:"quantity"`
+	ProductID string `json:"productId"`
+	Quantity  int32  `json:"quantity"`
 }
 
 type OrderWithItems struct {

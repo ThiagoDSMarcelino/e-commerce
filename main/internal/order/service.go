@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	repo "main/internal/adapters/postgresql/sqlc"
 	"main/internal/adapters/rabbitmq"
@@ -17,12 +16,6 @@ import (
 const (
 	routingKeyCreated = "pedido.criado"
 	routingKeyDeleted = "pedido.excluido"
-)
-
-type OrderErrors string
-
-var (
-	ErrOrderWithInvalidProductId = errors.New("invalid product id")
 )
 
 type Service interface {
@@ -63,14 +56,9 @@ func (s *svc) PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWit
 
 	items := make([]repo.OrderItem, 0, len(data.Items))
 	for _, item := range data.Items {
-		var productID pgtype.UUID
-		if err = productID.Scan(item.ProductID); err != nil {
-			return OrderWithItems{}, fmt.Errorf("invalid product id %s: %w", item.ProductID, ErrOrderWithInvalidProductId)
-		}
-
-		createdItem, err := s.repo.CreateOrderItem(ctx, repo.CreateOrderItemParams{
+		createdItem, err := qtx.CreateOrderItem(ctx, repo.CreateOrderItemParams{
 			OrderID:   id,
-			ProductID: productID,
+			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
 		})
 		if err != nil {
@@ -89,7 +77,7 @@ func (s *svc) PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWit
 	}
 	for _, it := range items {
 		event.Products = append(event.Products, ProductRequest{
-			Id:     uuid.UUID(it.ProductID.Bytes).String(),
+			Id:     it.ProductID,
 			Amount: int(it.Quantity),
 		})
 	}

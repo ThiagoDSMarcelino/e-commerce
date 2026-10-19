@@ -34,7 +34,7 @@ func (s *svc) ListRegistredEmails(ctx context.Context, data listRegistredEmailQu
 	registrations, err := s.repo.ListRegistredEmail(ctx, repo.ListRegistredEmailParams{
 		ClientID: data.ClientID,
 		Offset:   (data.Page - 1) * data.Size,
-		Limit:    data.Page,
+		Limit:    data.Size,
 	})
 	if err != nil {
 		return nil, err

@@ -21,7 +21,7 @@ type cancelSubscriptionRequest struct {
 
 type registrationResponse struct {
 	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type registrationListResponse struct {

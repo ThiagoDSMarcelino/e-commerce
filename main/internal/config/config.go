@@ -19,6 +19,7 @@ type Config struct {
 	ServiceName  string
 	KeysDir      string
 	QueueName    string
+	StorageURL   string
 	Db           DatabaseConfig
 }
 
@@ -63,6 +64,8 @@ func Load() (*Config, error) {
 		return nil, errors.New("QUEUE_NAME is not set or is empty")
 	}
 
+	storageURL := env.GetString("STORAGE_URL", "http://storage:8080")
+
 	dsn := os.Getenv("GOOSE_DBSTRING")
 	if queueName == "" {
 		return nil, errors.New("CONNECTION_STRING is not set or is empty")
@@ -76,6 +79,7 @@ func Load() (*Config, error) {
 		ServiceName:  serviceName,
 		KeysDir:      keysDir,
 		QueueName:    queueName,
+		StorageURL:   storageURL,
 		Db: DatabaseConfig{
 			Dsn: dsn,
 		},

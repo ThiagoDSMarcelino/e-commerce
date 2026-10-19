@@ -10,6 +10,10 @@ type Handler struct {
 	srv Service
 }
 
+func NewHandler(srv Service) *Handler {
+	return &Handler{srv: srv}
+}
+
 func (h *Handler) ListRegistrations(c *gin.Context) {
 	var query listRegistredEmailQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
@@ -32,7 +36,7 @@ func (h *Handler) ListRegistrations(c *gin.Context) {
 	res := registrationListResponse{
 		Items: list,
 		Total: count,
-		Page:  query.Size,
+		Page:  query.Page,
 	}
 
 	c.JSON(http.StatusOK, res)

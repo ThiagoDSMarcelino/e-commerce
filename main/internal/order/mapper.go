@@ -7,7 +7,7 @@ import (
 
 func toOrderItem(it repo.OrderItem) OrderItem {
 	return OrderItem{
-		ProductID: uuid.UUID(it.ProductID.Bytes),
+		ProductID: it.ProductID,
 		Quantity:  it.Quantity,
 	}
 }

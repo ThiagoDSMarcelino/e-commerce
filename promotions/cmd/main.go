@@ -69,7 +69,7 @@ func run() error {
 		_ = env.CloseConnections(context.Background())
 	}()
 
-	_, err = conn.Management().DeclareExchange(ctx, &rmq.TopicExchangeSpecification{Name: settings.Rmq.ExchangeName})
+	_, err = conn.Management().DeclareExchange(ctx, &rmq.DirectExchangeSpecification{Name: settings.Rmq.ExchangeName})
 	if err != nil {
 		return fmt.Errorf("Failed to declare an exchange: %v", err)
 	}

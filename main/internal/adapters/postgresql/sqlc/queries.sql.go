@@ -71,7 +71,7 @@ INSERT INTO order_items (
 
 type CreateOrderItemParams struct {
 	OrderID   pgtype.UUID `db:"order_id"`
-	ProductID pgtype.UUID `db:"product_id"`
+	ProductID string      `db:"product_id"`
 	Quantity  int32       `db:"quantity"`
 }
 
