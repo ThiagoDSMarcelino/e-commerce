@@ -10,20 +10,21 @@ import (
 	"main/internal/products"
 	"main/internal/promotions"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Application struct {
 	config *config.Config
-	db     *pgx.Conn
+	db     *pgxpool.Pool
 	rmq    *rabbitmq.Broker
 }
 
-func NewApplication(config *config.Config, conn *pgx.Conn, broker *rabbitmq.Broker) *Application {
+func NewApplication(config *config.Config, conn *pgxpool.Pool, broker *rabbitmq.Broker) *Application {
 	return &Application{config: config, db: conn, rmq: broker}
 }
 
@@ -46,6 +47,7 @@ func (app *Application) Mount(ctx context.Context) http.Handler {
 
 		if err != nil {
 			slog.Error("consumer error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -53,6 +55,7 @@ func (app *Application) Mount(ctx context.Context) http.Handler {
 
 	r.GET("/orders", ordersHandler.GetOrders)
 	r.POST("/orders", ordersHandler.CreateOrder)
+	r.POST("/orders/:id/cancel", ordersHandler.CancelOrder)
 
 	promotionsHandler := promotions.NewHandler(promotions.NewService(repo.New(app.db), app.rmq))
 

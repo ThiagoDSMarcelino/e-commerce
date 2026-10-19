@@ -23,13 +23,20 @@ public class Main {
 
     private static final Gson GSON = new Gson();
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        try {
+            run();
+        } catch (Exception e) {
+            System.out.println(" [!] Falha fatal: " + e);
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+
+    private static void run() throws Exception {
         Settings settings = Settings.load();
         Storage storage = new Storage(Path.of(settings.storageFile()));
         Signer signer = new Signer(Path.of(settings.keysDir()), settings.serviceName());
-
-        ProductsApi api = new ProductsApi(storage, settings.port());
-        api.start();
 
         Environment environment = new AmqpEnvironmentBuilder()
                 .connectionSettings()
@@ -106,6 +113,9 @@ public class Main {
                     }
                 })
                 .build();
+
+        ProductsApi api = new ProductsApi(storage, settings.port());
+        api.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             api.stop();

@@ -2,7 +2,7 @@ import { keepPreviousData, queryOptions, useMutation, useQueryClient } from '@ta
 
 import { apiFetch } from './client'
 import { productsKeys } from './products'
-import type { CreateOrderInput, Order, Paginated } from './types'
+import type { CancelOrderInput, CreateOrderInput, Order, Paginated } from './types'
 
 export const ordersKeys = {
   all: ['orders'] as const,
@@ -33,6 +33,27 @@ export function useCreateOrder() {
       apiFetch<Order>('/orders', { method: 'POST', json: input }),
     onSuccess: (_, input) => {
       void queryClient.invalidateQueries({ queryKey: ordersKeys.byClient(input.clientId) })
+      void queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    },
+  })
+}
+
+export function useCancelOrder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ orderId, clientId }: CancelOrderInput) =>
+      apiFetch<Order>(`/orders/${orderId}/cancel`, { method: 'POST', json: { clientId } }),
+    onSuccess: (cancelled, { clientId }) => {
+      queryClient.setQueriesData<Paginated<Order>>(
+        { queryKey: ordersKeys.byClient(clientId) },
+        (old) =>
+          old && {
+            ...old,
+            items: old.items.map((order) => (order.id === cancelled.id ? cancelled : order)),
+          },
+      )
+      void queryClient.invalidateQueries({ queryKey: ordersKeys.byClient(clientId) })
       void queryClient.invalidateQueries({ queryKey: productsKeys.all })
     },
   })

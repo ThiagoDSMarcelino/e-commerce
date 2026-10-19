@@ -67,8 +67,8 @@ func Load() (*Config, error) {
 	storageURL := env.GetString("STORAGE_URL", "http://storage:8080")
 
 	dsn := os.Getenv("GOOSE_DBSTRING")
-	if queueName == "" {
-		return nil, errors.New("CONNECTION_STRING is not set or is empty")
+	if dsn == "" {
+		return nil, errors.New("GOOSE_DBSTRING is not set or is empty")
 	}
 
 	return &Config{

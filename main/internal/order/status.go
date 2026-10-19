@@ -9,8 +9,14 @@ const (
 	StatusPaymentOk     OrderStatus = "Pagamento aprovado"
 	StatusPaymentFailed OrderStatus = "Pagamento recusado"
 	StatusShipped       OrderStatus = "Enviado"
-	StatusCancelled     OrderStatus = "Excluído"
+	StatusCancelled     OrderStatus = "Cancelado"
 )
+
+// Status a partir dos quais o pedido não pode mais ser cancelado.
+var nonCancellableStatuses = []string{
+	string(StatusShipped),
+	string(StatusCancelled),
+}
 
 var statusByRoutingKey = map[string]OrderStatus{
 	"pagamento.aprovado":   StatusPaymentOk,

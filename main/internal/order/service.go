@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	repo "main/internal/adapters/postgresql/sqlc"
 	"main/internal/adapters/rabbitmq"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -18,20 +20,26 @@ const (
 	routingKeyDeleted = "pedido.excluido"
 )
 
+var (
+	ErrOrderNotFound       = errors.New("pedido não encontrado")
+	ErrOrderNotCancellable = errors.New("pedido não pode ser cancelado")
+)
+
 type Service interface {
 	PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWithItems, error)
 	ListOrders(ctx context.Context, data listOrdersQuery) ([]OrderWithItems, error)
 	Count(ctx context.Context, clientId int64) (int64, error)
+	CancelOrder(ctx context.Context, orderId uuid.UUID, clientId int64) (OrderWithItems, error)
 	HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse
 }
 
 type svc struct {
 	repo *repo.Queries
-	db   *pgx.Conn
+	db   *pgxpool.Pool
 	rqm  *rabbitmq.Broker
 }
 
-func NewService(repo *repo.Queries, db *pgx.Conn, rqm *rabbitmq.Broker) Service {
+func NewService(repo *repo.Queries, db *pgxpool.Pool, rqm *rabbitmq.Broker) Service {
 	return &svc{repo: repo, db: db, rqm: rqm}
 }
 
@@ -71,16 +79,7 @@ func (s *svc) PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWit
 		return OrderWithItems{}, err
 	}
 
-	event := OrderEvent{
-		Id:       createdOrder.ID.Bytes,
-		Products: make([]ProductRequest, 0, len(items)),
-	}
-	for _, it := range items {
-		event.Products = append(event.Products, ProductRequest{
-			Id:     it.ProductID,
-			Amount: int(it.Quantity),
-		})
-	}
+	event := newOrderEvent(createdOrder.ID.Bytes, items)
 	payload, err := event.Serialize()
 
 	if err := s.rqm.Publish(ctx, routingKeyCreated, payload); err != nil {
@@ -134,6 +133,54 @@ func (s *svc) Count(ctx context.Context, clientId int64) (int64, error) {
 	return s.repo.CountOrders(ctx, clientId)
 }
 
+func (s *svc) CancelOrder(ctx context.Context, orderId uuid.UUID, clientId int64) (OrderWithItems, error) {
+	id := pgtype.UUID{Bytes: orderId, Valid: true}
+
+	cancelled, err := s.repo.CancelOrder(ctx, repo.CancelOrderParams{
+		Status:         string(StatusCancelled),
+		OrderID:        id,
+		ClientID:       clientId,
+		NonCancellable: nonCancellableStatuses,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		current, err := s.repo.GetOrder(ctx, repo.GetOrderParams{OrderID: id, ClientID: clientId})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OrderWithItems{}, ErrOrderNotFound
+		}
+		if err != nil {
+			return OrderWithItems{}, err
+		}
+		return OrderWithItems{}, fmt.Errorf("%w: status %q", ErrOrderNotCancellable, current.Status)
+	}
+	if err != nil {
+		return OrderWithItems{}, err
+	}
+
+	items, err := s.repo.ListOrderItemsByOrderIDs(ctx, []pgtype.UUID{id})
+	if err != nil {
+		return OrderWithItems{}, err
+	}
+
+	// O storage devolve ao estoque o que tiver sido reservado para o pedido.
+	event := newOrderEvent(orderId, items)
+	payload, err := event.Serialize()
+	if err != nil {
+		return OrderWithItems{}, err
+	}
+
+	if err := s.rqm.Publish(ctx, routingKeyDeleted, payload); err != nil {
+		if !errors.Is(err, rabbitmq.ErrUnroutable) {
+			slog.Error("Failed to publish cancellation", "order_id", orderId, "error", err)
+		} else {
+			slog.Warn("Cancellation event was not routed to any queue", "id", orderId)
+		}
+	}
+
+	slog.Info("order cancelled by client", "id", orderId, "client_id", clientId)
+
+	return toOrderWithItems(cancelled, items), nil
+}
+
 func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse {
 	order, err := parseOrderEvent(event.Data)
 	if err != nil {
@@ -148,8 +195,15 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 		return rabbitmq.Rejected
 	}
 
-	if err := s.updateOrderStatus(ctx, order.Id, status); err != nil {
+	updated, err := s.updateOrderStatus(ctx, order.Id, status)
+	if err != nil {
 		return rabbitmq.Requeued
+	}
+
+	if !updated {
+		slog.Info("Ignoring status event for cancelled or unknown order",
+			"order_id", order.Id, "routingKey", event.RoutingKey)
+		return rabbitmq.Accepted
 	}
 
 	slog.Info("Order status updated", "order_id", order.Id, "status", status)
@@ -177,9 +231,11 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 	return rabbitmq.Accepted
 }
 
-func (s *svc) updateOrderStatus(ctx context.Context, orderId uuid.UUID, status OrderStatus) error {
-	return s.repo.UpdateOrderStatus(ctx, repo.UpdateOrderStatusParams{
-		OrderID: pgtype.UUID{Bytes: orderId, Valid: true},
-		Status:  string(status),
+func (s *svc) updateOrderStatus(ctx context.Context, orderId uuid.UUID, status OrderStatus) (bool, error) {
+	rows, err := s.repo.UpdateOrderStatus(ctx, repo.UpdateOrderStatusParams{
+		OrderID:         pgtype.UUID{Bytes: orderId, Valid: true},
+		Status:          string(status),
+		CancelledStatus: string(StatusCancelled),
 	})
+	return rows > 0, err
 }

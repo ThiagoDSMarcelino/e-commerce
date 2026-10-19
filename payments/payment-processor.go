@@ -4,15 +4,18 @@ import (
 	"context"
 	"log/slog"
 	"math/rand/v2"
+	"time"
 )
 
 type PaymentProcessor struct {
 	broker *Broker
+	delay  time.Duration
 }
 
-func NewPaymentProcessor(broker *Broker) *PaymentProcessor {
+func NewPaymentProcessor(broker *Broker, delay time.Duration) *PaymentProcessor {
 	return &PaymentProcessor{
 		broker: broker,
+		delay:  delay,
 	}
 }
 
@@ -20,6 +23,10 @@ func (pp *PaymentProcessor) ProcessDelivery(ctx context.Context, data []byte) Me
 	order, err := ParseOrder(data)
 	if err != nil {
 		return Rejected
+	}
+
+	if err := waitDelay(ctx, pp.delay); err != nil {
+		return Requeued
 	}
 
 	shouldAprove, err := pp.processPayment(order)

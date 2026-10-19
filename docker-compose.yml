@@ -127,6 +127,7 @@ services:
       SERVICE_NAME: payments
       KEYS_DIR: /keys
       QUEUE_NAME: fila.pagamento
+      PROCESSING_DELAY_SECONDS: 10
     volumes:
       - ./payments/keys:/keys:ro
     depends_on:
@@ -165,6 +166,7 @@ services:
       SERVICE_NAME: shipping
       KEYS_DIR: /keys
       QUEUE_NAME: fila.entrega
+      PROCESSING_DELAY_SECONDS: 10
     volumes:
       - ./shipping/keys:/keys:ro
     depends_on:
@@ -182,6 +184,7 @@ services:
       EXCHANGE_NAME: eCommerce
       SERVICE_NAME: storage
       STORAGE_FILE: /app/storage.json
+      PROCESSING_DELAY_SECONDS: 10
       KEYS_DIR: /keys
       PORT: 8080
     volumes:

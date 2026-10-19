@@ -11,6 +11,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelOrder = `-- name: CancelOrder :one
+UPDATE orders
+SET status = $1
+WHERE id = $2::uuid
+  AND client_id = $3
+  AND status <> ALL($4::text[])
+RETURNING id, client_id, created_at, status
+`
+
+type CancelOrderParams struct {
+	Status         string      `db:"status"`
+	OrderID        pgtype.UUID `db:"order_id"`
+	ClientID       int64       `db:"client_id"`
+	NonCancellable []string    `db:"non_cancellable"`
+}
+
+func (q *Queries) CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error) {
+	row := q.db.QueryRow(ctx, cancelOrder,
+		arg.Status,
+		arg.OrderID,
+		arg.ClientID,
+		arg.NonCancellable,
+	)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.CreatedAt,
+		&i.Status,
+	)
+	return i, err
+}
+
 const countOrders = `-- name: CountOrders :one
 SELECT count(*) FROM orders
 WHERE client_id = $1
@@ -79,6 +112,29 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 	row := q.db.QueryRow(ctx, createOrderItem, arg.OrderID, arg.ProductID, arg.Quantity)
 	var i OrderItem
 	err := row.Scan(&i.OrderID, &i.ProductID, &i.Quantity)
+	return i, err
+}
+
+const getOrder = `-- name: GetOrder :one
+SELECT id, client_id, created_at, status FROM orders
+WHERE id = $1::uuid
+  AND client_id = $2
+`
+
+type GetOrderParams struct {
+	OrderID  pgtype.UUID `db:"order_id"`
+	ClientID int64       `db:"client_id"`
+}
+
+func (q *Queries) GetOrder(ctx context.Context, arg GetOrderParams) (Order, error) {
+	row := q.db.QueryRow(ctx, getOrder, arg.OrderID, arg.ClientID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.CreatedAt,
+		&i.Status,
+	)
 	return i, err
 }
 
@@ -183,18 +239,24 @@ func (q *Queries) ListRegistredEmail(ctx context.Context, arg ListRegistredEmail
 	return items, nil
 }
 
-const updateOrderStatus = `-- name: UpdateOrderStatus :exec
+const updateOrderStatus = `-- name: UpdateOrderStatus :execrows
 UPDATE orders
 SET status = $1
 WHERE id = $2::uuid
+  AND status <> $3
 `
 
 type UpdateOrderStatusParams struct {
-	Status  string      `db:"status"`
-	OrderID pgtype.UUID `db:"order_id"`
+	Status          string      `db:"status"`
+	OrderID         pgtype.UUID `db:"order_id"`
+	CancelledStatus string      `db:"cancelled_status"`
 }
 
-func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error {
-	_, err := q.db.Exec(ctx, updateOrderStatus, arg.Status, arg.OrderID)
-	return err
+// Não sobrescreve pedidos cancelados: eventos atrasados do fluxo são ignorados.
+func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateOrderStatus, arg.Status, arg.OrderID, arg.CancelledStatus)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

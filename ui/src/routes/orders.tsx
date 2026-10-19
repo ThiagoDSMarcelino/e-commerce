@@ -9,16 +9,36 @@ import {
   useTable,
 } from '@tanstack/react-table'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronDown, ChevronLeft, ChevronRight, CreditCard, RefreshCw } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  Loader2,
+  RefreshCw,
+  X,
+} from 'lucide-react'
 import { useMemo } from 'react'
+import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { ordersQueryOptions } from '@/api/orders'
+import { ordersQueryOptions, useCancelOrder } from '@/api/orders'
 import { productsQueryOptions } from '@/api/products'
 import type { Order } from '@/api/types'
 import { DataTable } from '@/components/data-table'
 import { OrderStatusBadge } from '@/components/order-status-badge'
 import { PageHeader, QueryError } from '@/components/page-header'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -30,7 +50,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSseStatus } from '@/hooks/use-order-events'
 import { formatDateTime, shortId } from '@/lib/format'
-import { canPay, isFinalStatus } from '@/lib/order-status'
+import { canCancel, canPay, isFinalStatus } from '@/lib/order-status'
 import { openPayment } from '@/lib/payment'
 import { cn } from '@/lib/utils'
 import { useClientId } from '@/stores/user'
@@ -99,17 +119,65 @@ const columns = helper.columns([
     header: () => <span className="sr-only">Ações</span>,
     cell: ({ row }) => {
       const { paymentUrl, status } = row.original
-      if (!paymentUrl || !canPay(status)) return null
       return (
-        <Button size="sm" variant="outline" onClick={() => openPayment(paymentUrl)}>
-          <CreditCard className="size-4" /> Pagar
-        </Button>
+        <div className="flex items-center justify-end gap-2">
+          {paymentUrl && canPay(status) && (
+            <Button size="sm" variant="outline" onClick={() => openPayment(paymentUrl)}>
+              <CreditCard className="size-4" /> Pagar
+            </Button>
+          )}
+          {canCancel(status) && <CancelOrderButton order={row.original} />}
+        </div>
       )
     },
   }),
 ])
 
 const EMPTY_ORDERS: Order[] = []
+
+function CancelOrderButton({ order }: { order: Order }) {
+  const clientId = useClientId()
+  const cancel = useCancelOrder()
+
+  const onConfirm = () =>
+    cancel.mutate(
+      { orderId: order.id, clientId },
+      {
+        onSuccess: () => toast.success(`Pedido ${shortId(order.id)} cancelado`),
+        onError: (err) =>
+          toast.error('Não foi possível cancelar o pedido', { description: err.message }),
+      },
+    )
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="ghost" disabled={cancel.isPending}>
+          {cancel.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <X className="size-4" />
+          )}
+          Cancelar
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Cancelar o pedido {shortId(order.id)}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Os itens reservados voltam para o estoque. Essa ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Voltar</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+            Cancelar pedido
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
 
 function OrdersPage() {
   const clientId = useClientId()

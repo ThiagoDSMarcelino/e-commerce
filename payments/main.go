@@ -48,7 +48,7 @@ func run() error {
 		_ = broker.Close()
 	}()
 
-	paymentProcessor := NewPaymentProcessor(broker)
+	paymentProcessor := NewPaymentProcessor(broker, settings.ProcessingDelay)
 
 	return broker.Consume(ctx, paymentProcessor.ProcessDelivery)
 }

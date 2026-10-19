@@ -11,14 +11,16 @@ import (
 )
 
 type Querier interface {
+	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	CountOrders(ctx context.Context, clientID int64) (int64, error)
 	CountRegistrations(ctx context.Context, clientID int64) (int64, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) (OrderItem, error)
+	GetOrder(ctx context.Context, arg GetOrderParams) (Order, error)
 	ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtype.UUID) ([]OrderItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	ListRegistredEmail(ctx context.Context, arg ListRegistredEmailParams) ([]PromotionRegistration, error)
-	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

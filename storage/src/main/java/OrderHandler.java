@@ -27,6 +27,8 @@ public class OrderHandler {
     public void handleOrderCreated(Order order) {
         System.out.println(" [x] Pedido criado: '" + order.id() + "'");
 
+        waitDelay();
+
         if (storage.tryDebit(order)) {
             System.out.println("     pedido aprovado, estoque reservado");
             publish(STOCK_OK, order);
@@ -39,6 +41,21 @@ public class OrderHandler {
     public void handleOrderDeleted(Order order) {
         System.out.println(" [x] Pedido excluido: '" + order.id() + "'");
         storage.credit(order);
+    }
+
+    private void waitDelay() {
+        int seconds = settings.processingDelaySeconds();
+        if (seconds <= 0) {
+            return;
+        }
+
+        System.out.println("     aguardando " + seconds + "s antes de processar");
+        try {
+            Thread.sleep(seconds * 1000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrompido durante a espera", e);
+        }
     }
 
     private void publish(String routingKey, Order order) {

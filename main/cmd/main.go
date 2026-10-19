@@ -8,7 +8,7 @@ import (
 	"main/internal/signing"
 	"os"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var bindingKeys = []string{
@@ -28,12 +28,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := pgx.Connect(ctx, cfg.Db.Dsn)
+	conn, err := pgxpool.New(ctx, cfg.Db.Dsn)
 	if err != nil {
 		slog.Error("Server failed to connecto to database", "error", err)
 		os.Exit(1)
 	}
-	defer conn.Close(ctx)
+	defer conn.Close()
+
+	if err := conn.Ping(ctx); err != nil {
+		slog.Error("Server failed to connecto to database", "error", err)
+		os.Exit(1)
+	}
 
 	signer, err := signing.NewSigner(cfg)
 	if err != nil {

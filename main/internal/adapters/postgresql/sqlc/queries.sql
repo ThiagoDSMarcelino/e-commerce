@@ -27,10 +27,24 @@ INSERT INTO order_items (
 ) VALUES ($1, $2, $3) RETURNING *;
 
 
--- name: UpdateOrderStatus :exec
+-- name: GetOrder :one
+SELECT * FROM orders
+WHERE id = sqlc.arg('order_id')::uuid
+  AND client_id = sqlc.arg('client_id');
+
+-- name: UpdateOrderStatus :execrows
 UPDATE orders
 SET status = sqlc.arg('status')
-WHERE id = sqlc.arg('order_id')::uuid;
+WHERE id = sqlc.arg('order_id')::uuid
+  AND status <> sqlc.arg('cancelled_status');
+
+-- name: CancelOrder :one
+UPDATE orders
+SET status = sqlc.arg('status')
+WHERE id = sqlc.arg('order_id')::uuid
+  AND client_id = sqlc.arg('client_id')
+  AND status <> ALL(sqlc.arg('non_cancellable')::text[])
+RETURNING *;
 
 -- name: ListRegistredEmail :many
 SELECT * FROM promotion_registrations

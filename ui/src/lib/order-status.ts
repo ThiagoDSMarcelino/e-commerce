@@ -6,7 +6,7 @@ export const ORDER_STATUS = {
   paymentOk: 'Pagamento aprovado',
   paymentFailed: 'Pagamento recusado',
   shipped: 'Enviado',
-  cancelled: 'Excluído',
+  cancelled: 'Cancelado',
 } as const
 
 export type OrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS]
@@ -31,6 +31,11 @@ export function statusMeta(status: string): StatusMeta {
 
 export function isFinalStatus(status: string) {
   return statusMeta(status).final
+}
+
+// Espelho de nonCancellableStatuses em main/internal/order/status.go
+export function canCancel(status: string) {
+  return status !== ORDER_STATUS.shipped && status !== ORDER_STATUS.cancelled
 }
 
 // Pedido aguardando o consumidor pagar (quando o main passar a enviar paymentUrl).

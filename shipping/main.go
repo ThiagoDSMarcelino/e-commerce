@@ -51,6 +51,10 @@ func run() error {
 			return Rejected
 		}
 
+		if err := waitDelay(ctx, settings.ProcessingDelay); err != nil {
+			return Requeued
+		}
+
 		slog.Info("Iniciando envio do pedido", "order", order)
 		slog.Info("Nota fiscal emitida", "order", order)
 		slog.Info("Entrega iniciada", "order", order)

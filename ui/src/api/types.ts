@@ -33,6 +33,11 @@ export type CreateOrderInput = {
   items: OrderItem[]
 }
 
+export type CancelOrderInput = {
+  orderId: string
+  clientId: number
+}
+
 export type Registration = {
   email: string
   createdAt: string

@@ -60,6 +60,18 @@ Resposta `201`: o pedido criado, no mesmo formato de um item da listagem.
 
 🚧 **Pagamento**: se a resposta trouxer `paymentUrl`, a UI abre essa URL em uma nova aba logo após o clique em "Finalizar pedido". Se o navegador bloquear a aba, a UI mostra um botão para abrir manualmente. A URL precisa ser servida pelo **main**, por exemplo `/api/payments/{orderId}`, que exibe o mock com os botões aprovar/recusar e publica `pagamento.aprovado` ou `pagamento.recusado` no RabbitMQ. O `paymentUrl` também pode vir na listagem ou no evento SSE. Nesses casos, a UI mostra o botão "Pagar" enquanto o status for `Estoque confirmado`.
 
+### ✅ `POST /orders/{id}/cancel`
+
+Requisição:
+
+```json
+{ "clientId": 1 }
+```
+
+Resposta `200`: o pedido com `status: "Cancelado"`, no mesmo formato de um item da listagem. O main publica `pedido.excluido` para o storage devolver o estoque reservado.
+
+Pode cancelar em qualquer status, exceto `Enviado` e `Cancelado`. Erros: `400` (id ou corpo inválido), `404` (pedido não existe para esse `clientId`) e `409` (status não permite cancelamento).
+
 ### 🚧 `GET /orders/events?clientId={id}` (SSE)
 
 `Content-Type: text/event-stream`. Cada mudança de status de um pedido do cliente é enviada como:

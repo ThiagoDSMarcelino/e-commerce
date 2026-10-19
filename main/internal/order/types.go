@@ -15,6 +15,14 @@ type createOrderRequest struct {
 	Items    []orderItemRequest `json:"items"     binding:"required,min=1,dive"`
 }
 
+type cancelOrderUri struct {
+	ID string `uri:"id" binding:"required,uuid"`
+}
+
+type cancelOrderRequest struct {
+	ClientID int64 `json:"clientId" binding:"required,gt=0"`
+}
+
 type listOrdersQuery struct {
 	ClientID int64 `form:"clientId" binding:"required,gt=0"`
 	Size     int32 `form:"size,default=10" binding:"min=1,max=100"`

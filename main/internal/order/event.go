@@ -3,6 +3,7 @@ package orders
 import (
 	"encoding/json"
 	"fmt"
+	repo "main/internal/adapters/postgresql/sqlc"
 	"uuid"
 )
 
@@ -15,6 +16,20 @@ type ProductRequest struct {
 type OrderEvent struct {
 	Id       uuid.UUID        `json:"id"`
 	Products []ProductRequest `json:"products"`
+}
+
+func newOrderEvent(id uuid.UUID, items []repo.OrderItem) OrderEvent {
+	event := OrderEvent{
+		Id:       id,
+		Products: make([]ProductRequest, 0, len(items)),
+	}
+	for _, it := range items {
+		event.Products = append(event.Products, ProductRequest{
+			Id:     it.ProductID,
+			Amount: int(it.Quantity),
+		})
+	}
+	return event
 }
 
 func parseOrderEvent(data []byte) (*OrderEvent, error) {
