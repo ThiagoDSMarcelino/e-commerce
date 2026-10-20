@@ -27,8 +27,8 @@ const RETRY_MAX_MS = 60_000
  * Mantém uma conexão SSE com o main (GET /orders/events?clientId=) e aplica cada
  * mudança de status no cache do TanStack Query.
  *
- * Se o endpoint não existir ou cair, o EventSource fecha e tentamos novamente com
- * backoff exponencial. Enquanto isso, a tela de pedidos usa polling.
+ * Se o endpoint não responder ou cair, o EventSource fecha e tentamos novamente com
+ * backoff exponencial; ao reconectar, a listagem é refeita.
  */
 export function useOrderEvents(clientId: number) {
   const queryClient = useQueryClient()

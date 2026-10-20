@@ -2,8 +2,18 @@ package orders
 
 import (
 	repo "main/internal/adapters/postgresql/sqlc"
+	"time"
 	"uuid"
 )
+
+func toStatusEvent(o repo.Order) StatusEvent {
+	return StatusEvent{
+		OrderID:    uuid.UUID(o.ID.Bytes),
+		Status:     o.Status,
+		UpdatedAt:  time.Now().UTC(),
+		PaymentURL: o.PaymentUrl.String,
+	}
+}
 
 func toOrderItem(it repo.OrderItem) OrderItem {
 	return OrderItem{

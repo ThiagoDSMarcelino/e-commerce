@@ -21,8 +21,8 @@ type Querier interface {
 	ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtype.UUID) ([]OrderItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	ListRegistredEmail(ctx context.Context, arg ListRegistredEmailParams) ([]PromotionRegistration, error)
-	SetOrderPaymentUrl(ctx context.Context, arg SetOrderPaymentUrlParams) (int64, error)
-	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (int64, error)
+	SetOrderPaymentUrl(ctx context.Context, arg SetOrderPaymentUrlParams) (Order, error)
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpsertRegistration(ctx context.Context, arg UpsertRegistrationParams) (PromotionRegistration, error)
 }
 

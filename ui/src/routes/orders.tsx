@@ -48,15 +48,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useSseStatus } from '@/hooks/use-order-events'
 import { formatDateTime, shortId } from '@/lib/format'
-import { canCancel, canPay, isFinalStatus } from '@/lib/order-status'
+import { canCancel, canPay } from '@/lib/order-status'
 import { openPayment } from '@/lib/payment'
 import { cn } from '@/lib/utils'
 import { useClientId } from '@/stores/user'
 
 const PAGE_SIZES = [5, 10, 20, 50] as const
-const POLLING_MS = 5_000
 
 const searchSchema = z.object({
   page: z.number().int().min(1).default(1).catch(1),
@@ -183,16 +181,8 @@ function OrdersPage() {
   const clientId = useClientId()
   const { page, size } = Route.useSearch()
   const navigate = Route.useNavigate()
-  const sseStatus = useSseStatus()
 
-  const ordersQuery = useQuery({
-    ...ordersQueryOptions(clientId, page, size),
-    // Sem SSE, acompanha os pedidos em andamento por polling.
-    refetchInterval: (query) =>
-      sseStatus !== 'open' && query.state.data?.items.some((o) => !isFinalStatus(o.status))
-        ? POLLING_MS
-        : false,
-  })
+  const ordersQuery = useQuery(ordersQueryOptions(clientId, page, size))
   const productsQuery = useQuery(productsQueryOptions())
 
   const productNames = useMemo(

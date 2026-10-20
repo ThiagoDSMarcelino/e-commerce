@@ -1,11 +1,20 @@
 package orders
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"time"
 	"uuid"
 
 	"github.com/gin-gonic/gin"
+)
+
+const (
+	sseEventName = "order-status"
+	sseKeepAlive = 15 * time.Second
 )
 
 type Handler struct {
@@ -93,4 +102,59 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, res)
+}
+
+func (h *Handler) StreamEvents(c *gin.Context) {
+	var query orderEventsQuery
+	if err := c.ShouldBindQuery(&query); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	rc := http.NewResponseController(c.Writer)
+	if err := rc.SetWriteDeadline(time.Time{}); err != nil {
+		slog.Warn("Failed to clear write deadline for SSE", "error", err)
+	}
+
+	events, unsubscribe := h.srv.Subscribe(query.ClientID)
+	defer unsubscribe()
+
+	header := c.Writer.Header()
+	header.Set("Content-Type", "text/event-stream")
+	header.Set("Cache-Control", "no-cache")
+	header.Set("Connection", "keep-alive")
+	header.Set("X-Accel-Buffering", "no")
+	c.Status(http.StatusOK)
+
+	if _, err := fmt.Fprint(c.Writer, ": ping\n\n"); err != nil {
+		return
+	}
+	c.Writer.Flush()
+
+	ticker := time.NewTicker(sseKeepAlive)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-ticker.C:
+			if _, err := fmt.Fprint(c.Writer, ": ping\n\n"); err != nil {
+				return
+			}
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+			data, err := json.Marshal(event)
+			if err != nil {
+				slog.Error("Failed to marshal order status event", "order_id", event.OrderID, "error", err)
+				continue
+			}
+			if _, err := fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", sseEventName, data); err != nil {
+				return
+			}
+		}
+		c.Writer.Flush()
+	}
 }

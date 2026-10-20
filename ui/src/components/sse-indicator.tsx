@@ -14,8 +14,8 @@ const LABELS: Record<SseStatus, { label: string; hint: string; dot: string }> = 
     dot: 'bg-amber-500 animate-pulse',
   },
   unavailable: {
-    label: 'Atualização periódica',
-    hint: 'SSE indisponível no main. Os pedidos são atualizados a cada poucos segundos.',
+    label: 'Desconectado',
+    hint: 'SSE indisponível no main. Tentando reconectar; os status não serão atualizados até lá.',
     dot: 'bg-muted-foreground',
   },
 }

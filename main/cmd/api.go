@@ -36,9 +36,10 @@ func (app *Application) Mount(ctx context.Context) http.Handler {
 	r.Use(requestid.New())
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	r.Use(timeout(60 * time.Second))
 
-	ordersService := orders.NewService(repo.New(app.db), app.db, app.rmq)
+	api := r.Group("", timeout(60*time.Second))
+
+	ordersService := orders.NewService(repo.New(app.db), app.db, app.rmq, orders.NewBroadcaster())
 
 	go func() {
 		err := app.rmq.Consume(ctx, func(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse {
@@ -53,19 +54,21 @@ func (app *Application) Mount(ctx context.Context) http.Handler {
 
 	ordersHandler := orders.NewHandler(ordersService)
 
-	r.GET("/orders", ordersHandler.GetOrders)
-	r.POST("/orders", ordersHandler.CreateOrder)
-	r.POST("/orders/:id/cancel", ordersHandler.CancelOrder)
+	r.GET("/orders/events", ordersHandler.StreamEvents)
+
+	api.GET("/orders", ordersHandler.GetOrders)
+	api.POST("/orders", ordersHandler.CreateOrder)
+	api.POST("/orders/:id/cancel", ordersHandler.CancelOrder)
 
 	promotionsHandler := promotions.NewHandler(promotions.NewService(repo.New(app.db), app.rmq))
 
-	r.GET("/promotions", promotionsHandler.ListRegistrations)
-	r.POST("/promotions", promotionsHandler.RegisterSubscription)
-	r.DELETE("/promotions", promotionsHandler.CancelSubscription)
+	api.GET("/promotions", promotionsHandler.ListRegistrations)
+	api.POST("/promotions", promotionsHandler.RegisterSubscription)
+	api.DELETE("/promotions", promotionsHandler.CancelSubscription)
 
 	productsHandler := products.NewHandler(products.NewService(app.config.StorageURL))
 
-	r.GET("/products", productsHandler.ListProducts)
+	api.GET("/products", productsHandler.ListProducts)
 
 	return r
 }

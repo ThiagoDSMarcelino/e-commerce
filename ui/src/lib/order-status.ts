@@ -29,10 +29,6 @@ export function statusMeta(status: string): StatusMeta {
   return META[status as OrderStatus] ?? { tone: 'neutral', final: false }
 }
 
-export function isFinalStatus(status: string) {
-  return statusMeta(status).final
-}
-
 // Espelho de nonCancellableStatuses em main/internal/order/status.go
 export function canCancel(status: string) {
   return status !== ORDER_STATUS.shipped && status !== ORDER_STATUS.cancelled

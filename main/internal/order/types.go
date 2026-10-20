@@ -29,6 +29,10 @@ type listOrdersQuery struct {
 	Page     int32 `form:"page,default=1" binding:"min=1"`
 }
 
+type orderEventsQuery struct {
+	ClientID int64 `form:"clientId" binding:"required,gt=0"`
+}
+
 type OrderList struct {
 	Items []OrderWithItems `json:"items"`
 	Total int64            `json:"total"`

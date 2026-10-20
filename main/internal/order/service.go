@@ -32,16 +32,22 @@ type Service interface {
 	Count(ctx context.Context, clientId int64) (int64, error)
 	CancelOrder(ctx context.Context, orderId uuid.UUID, clientId int64) (OrderWithItems, error)
 	HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbitmq.MessageResponse
+	Subscribe(clientId int64) (<-chan StatusEvent, func())
 }
 
 type svc struct {
-	repo *repo.Queries
-	db   *pgxpool.Pool
-	rqm  *rabbitmq.Broker
+	repo   *repo.Queries
+	db     *pgxpool.Pool
+	rqm    *rabbitmq.Broker
+	events *Broadcaster
 }
 
-func NewService(repo *repo.Queries, db *pgxpool.Pool, rqm *rabbitmq.Broker) Service {
-	return &svc{repo: repo, db: db, rqm: rqm}
+func NewService(repo *repo.Queries, db *pgxpool.Pool, rqm *rabbitmq.Broker, events *Broadcaster) Service {
+	return &svc{repo: repo, db: db, rqm: rqm, events: events}
+}
+
+func (s *svc) Subscribe(clientId int64) (<-chan StatusEvent, func()) {
+	return s.events.Subscribe(clientId)
 }
 
 func (s *svc) PlaceOrder(ctx context.Context, data createOrderRequest) (OrderWithItems, error) {
@@ -202,17 +208,19 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 	}
 
 	updated, err := s.updateOrderStatus(ctx, order.Id, status)
-	if err != nil {
-		return rabbitmq.Requeued
-	}
-
-	if !updated {
+	if errors.Is(err, pgx.ErrNoRows) {
 		slog.Info("Ignoring status event for cancelled or unknown order",
 			"order_id", order.Id, "routingKey", event.RoutingKey)
 		return rabbitmq.Accepted
 	}
+	if err != nil {
+		slog.Error("Failed to update order status", "order_id", order.Id, "error", err)
+		return rabbitmq.Requeued
+	}
 
 	slog.Info("Order status updated", "order_id", order.Id, "status", status)
+
+	s.events.Publish(updated.ClientID, toStatusEvent(updated))
 
 	if !cancelsOrder[event.RoutingKey] {
 		return rabbitmq.Accepted
@@ -245,31 +253,31 @@ func (s *svc) savePaymentUrl(ctx context.Context, order *OrderEvent) rabbitmq.Me
 		return rabbitmq.Rejected
 	}
 
-	rows, err := s.repo.SetOrderPaymentUrl(ctx, repo.SetOrderPaymentUrlParams{
+	updated, err := s.repo.SetOrderPaymentUrl(ctx, repo.SetOrderPaymentUrlParams{
 		PaymentUrl:      order.CheckoutUrl,
 		OrderID:         pgtype.UUID{Bytes: order.Id, Valid: true},
 		CancelledStatus: string(StatusCancelled),
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		slog.Info("Ignoring payment url for cancelled or unknown order", "order_id", order.Id)
+		return rabbitmq.Accepted
+	}
 	if err != nil {
 		slog.Error("Failed to save payment url", "order_id", order.Id, "error", err)
 		return rabbitmq.Requeued
 	}
 
-	if rows == 0 {
-		slog.Info("Ignoring payment url for cancelled or unknown order", "order_id", order.Id)
-		return rabbitmq.Accepted
-	}
-
 	slog.Info("Order payment url saved", "order_id", order.Id, "payment_url", order.CheckoutUrl)
+
+	s.events.Publish(updated.ClientID, toStatusEvent(updated))
 
 	return rabbitmq.Accepted
 }
 
-func (s *svc) updateOrderStatus(ctx context.Context, orderId uuid.UUID, status OrderStatus) (bool, error) {
-	rows, err := s.repo.UpdateOrderStatus(ctx, repo.UpdateOrderStatusParams{
+func (s *svc) updateOrderStatus(ctx context.Context, orderId uuid.UUID, status OrderStatus) (repo.Order, error) {
+	return s.repo.UpdateOrderStatus(ctx, repo.UpdateOrderStatusParams{
 		OrderID:         pgtype.UUID{Bytes: orderId, Valid: true},
 		Status:          string(status),
 		CancelledStatus: string(StatusCancelled),
 	})
-	return rows > 0, err
 }

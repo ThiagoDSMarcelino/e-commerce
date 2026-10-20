@@ -32,17 +32,19 @@ SELECT * FROM orders
 WHERE id = sqlc.arg('order_id')::uuid
   AND client_id = sqlc.arg('client_id');
 
--- name: UpdateOrderStatus :execrows
+-- name: UpdateOrderStatus :one
 UPDATE orders
 SET status = sqlc.arg('status')
 WHERE id = sqlc.arg('order_id')::uuid
-  AND status <> sqlc.arg('cancelled_status');
+  AND status <> sqlc.arg('cancelled_status')
+RETURNING *;
 
--- name: SetOrderPaymentUrl :execrows
+-- name: SetOrderPaymentUrl :one
 UPDATE orders
 SET payment_url = sqlc.arg('payment_url')::text
 WHERE id = sqlc.arg('order_id')::uuid
-  AND status <> sqlc.arg('cancelled_status');
+  AND status <> sqlc.arg('cancelled_status')
+RETURNING *;
 
 -- name: CancelOrder :one
 UPDATE orders
