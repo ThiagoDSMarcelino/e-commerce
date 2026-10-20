@@ -139,6 +139,16 @@ services:
       keygen:
         condition: service_completed_successfully
 
+  payment-mock:
+    build: ./payment-mock
+    container_name: payment-mock
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      PUBLIC_URL: http://localhost:8090
+    ports:
+      - "8090:8080"
+
   promotions:
     build: ./promotions
     container_name: promotions-worker

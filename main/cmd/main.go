@@ -17,6 +17,7 @@ var bindingKeys = []string{
 	"pedido.enviado",
 	"pedido.estoque_ok",
 	"estoque.indisponivel",
+	"pagamento.pendente",
 }
 
 func main() {

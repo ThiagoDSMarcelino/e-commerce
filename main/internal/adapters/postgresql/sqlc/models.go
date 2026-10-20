@@ -9,10 +9,11 @@ import (
 )
 
 type Order struct {
-	ID        pgtype.UUID        `db:"id"`
-	ClientID  int64              `db:"client_id"`
-	CreatedAt pgtype.Timestamptz `db:"created_at"`
-	Status    string             `db:"status"`
+	ID         pgtype.UUID        `db:"id"`
+	ClientID   int64              `db:"client_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at"`
+	Status     string             `db:"status"`
+	PaymentUrl pgtype.Text        `db:"payment_url"`
 }
 
 type OrderItem struct {

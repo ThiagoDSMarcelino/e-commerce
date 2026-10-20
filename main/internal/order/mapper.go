@@ -18,10 +18,11 @@ func toOrderWithItems(o repo.Order, items []repo.OrderItem) OrderWithItems {
 		mapped[i] = toOrderItem(it)
 	}
 	return OrderWithItems{
-		ID:        uuid.UUID(o.ID.Bytes),
-		ClientID:  o.ClientID,
-		CreatedAt: o.CreatedAt.Time,
-		Status:    o.Status,
-		Items:     mapped,
+		ID:         uuid.UUID(o.ID.Bytes),
+		ClientID:   o.ClientID,
+		CreatedAt:  o.CreatedAt.Time,
+		Status:     o.Status,
+		Items:      mapped,
+		PaymentURL: o.PaymentUrl.String,
 	}
 }

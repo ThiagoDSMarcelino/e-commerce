@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {{if and .Found (eq .Charge.Status "PROCESSANDO")}}<meta http-equiv="refresh" content="2">{{end}}
+  <title>Mock de Pagamento</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f4f5;
+      color: #18181b;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      padding: 32px;
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+    }
+    h1 { margin: 0 0 4px; font-size: 1.25rem; }
+    .order { margin: 0 0 24px; color: #71717a; font-size: .875rem; }
+    code { font-size: .8rem; word-break: break-all; }
+    .actions { display: grid; gap: 12px; }
+    button {
+      padding: 12px;
+      border: 0;
+      border-radius: 8px;
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .approve { background: #16a34a; }
+    .decline { background: #dc2626; }
+    .msg { padding: 16px; border-radius: 8px; }
+    .ok { background: #dcfce7; color: #166534; font-weight: 600; }
+    .bad { background: #fee2e2; color: #991b1b; font-weight: 600; }
+    .warn { background: #fef9c3; color: #854d0e; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Mock de Pagamento</h1>
+    <p class="order">Pedido <code>{{.OrderId}}</code></p>
+
+    {{if not .Found}}
+      <div class="msg bad">Cobrança não encontrada.</div>
+    {{else}}{{with .Charge}}
+      {{if eq .Status "PENDENTE"}}
+        {{if .Error}}<div class="msg warn">{{.Error}}</div>{{end}}
+        <form method="post" class="actions">
+          <button class="approve" name="status" value="APROVADO">Pagamento Aprovado</button>
+          <button class="decline" name="status" value="RECUSADO">Pagamento Recusado</button>
+        </form>
+      {{else if eq .Status "PROCESSANDO"}}
+        <div class="msg warn">Processando pagamento…</div>
+      {{else if eq .Status "APROVADO"}}
+        <div class="msg ok">Pagamento aprovado. Você já pode fechar esta aba.</div>
+      {{else if eq .Status "RECUSADO"}}
+        <div class="msg bad">Pagamento recusado. Você já pode fechar esta aba.</div>
+      {{else}}
+        <div class="msg bad">{{.Error}}</div>
+      {{end}}
+    {{end}}{{end}}
+  </main>
+</body>
+</html>

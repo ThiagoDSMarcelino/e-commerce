@@ -17,7 +17,7 @@ SET status = $1
 WHERE id = $2::uuid
   AND client_id = $3
   AND status <> ALL($4::text[])
-RETURNING id, client_id, created_at, status
+RETURNING id, client_id, created_at, status, payment_url
 `
 
 type CancelOrderParams struct {
@@ -40,6 +40,7 @@ func (q *Queries) CancelOrder(ctx context.Context, arg CancelOrderParams) (Order
 		&i.ClientID,
 		&i.CreatedAt,
 		&i.Status,
+		&i.PaymentUrl,
 	)
 	return i, err
 }
@@ -73,7 +74,7 @@ INSERT INTO orders (
     id,
     client_id,
     status
-) VALUES ($1, $2, $3) RETURNING id, client_id, created_at, status
+) VALUES ($1, $2, $3) RETURNING id, client_id, created_at, status, payment_url
 `
 
 type CreateOrderParams struct {
@@ -90,6 +91,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.ClientID,
 		&i.CreatedAt,
 		&i.Status,
+		&i.PaymentUrl,
 	)
 	return i, err
 }
@@ -135,7 +137,7 @@ func (q *Queries) DeleteRegistration(ctx context.Context, arg DeleteRegistration
 }
 
 const getOrder = `-- name: GetOrder :one
-SELECT id, client_id, created_at, status FROM orders
+SELECT id, client_id, created_at, status, payment_url FROM orders
 WHERE id = $1::uuid
   AND client_id = $2
 `
@@ -153,6 +155,7 @@ func (q *Queries) GetOrder(ctx context.Context, arg GetOrderParams) (Order, erro
 		&i.ClientID,
 		&i.CreatedAt,
 		&i.Status,
+		&i.PaymentUrl,
 	)
 	return i, err
 }
@@ -183,7 +186,7 @@ func (q *Queries) ListOrderItemsByOrderIDs(ctx context.Context, orderIds []pgtyp
 }
 
 const listOrders = `-- name: ListOrders :many
-SELECT id, client_id, created_at, status FROM orders
+SELECT id, client_id, created_at, status, payment_url FROM orders
 WHERE client_id = $1
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $2
@@ -209,6 +212,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.ClientID,
 			&i.CreatedAt,
 			&i.Status,
+			&i.PaymentUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -257,6 +261,27 @@ func (q *Queries) ListRegistredEmail(ctx context.Context, arg ListRegistredEmail
 		return nil, err
 	}
 	return items, nil
+}
+
+const setOrderPaymentUrl = `-- name: SetOrderPaymentUrl :execrows
+UPDATE orders
+SET payment_url = $1::text
+WHERE id = $2::uuid
+  AND status <> $3
+`
+
+type SetOrderPaymentUrlParams struct {
+	PaymentUrl      string      `db:"payment_url"`
+	OrderID         pgtype.UUID `db:"order_id"`
+	CancelledStatus string      `db:"cancelled_status"`
+}
+
+func (q *Queries) SetOrderPaymentUrl(ctx context.Context, arg SetOrderPaymentUrlParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setOrderPaymentUrl, arg.PaymentUrl, arg.OrderID, arg.CancelledStatus)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateOrderStatus = `-- name: UpdateOrderStatus :execrows

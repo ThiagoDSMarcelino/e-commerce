@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	routingKeyCreated = "pedido.criado"
-	routingKeyDeleted = "pedido.excluido"
+	routingKeyCreated        = "pedido.criado"
+	routingKeyDeleted        = "pedido.excluido"
+	routingKeyPaymentPending = "pagamento.pendente"
 )
 
 var (
@@ -188,6 +189,11 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 		return rabbitmq.Rejected
 	}
 
+	// pagamento.pendente não muda o status: só traz o link de pagamento.
+	if event.RoutingKey == routingKeyPaymentPending {
+		return s.savePaymentUrl(ctx, order)
+	}
+
 	status, ok := statusByRoutingKey[event.RoutingKey]
 	if !ok {
 		slog.Warn("Received event with unknown routing key",
@@ -227,6 +233,34 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 	}
 
 	slog.Info("order cancelled", "id", order.Id)
+
+	return rabbitmq.Accepted
+}
+
+// savePaymentUrl guarda o link do mock de pagamento, que a listagem devolve
+// como paymentUrl para a UI mostrar o botão "Pagar".
+func (s *svc) savePaymentUrl(ctx context.Context, order *OrderEvent) rabbitmq.MessageResponse {
+	if order.CheckoutUrl == "" {
+		slog.Error("Payment pending event without checkout url", "order_id", order.Id)
+		return rabbitmq.Rejected
+	}
+
+	rows, err := s.repo.SetOrderPaymentUrl(ctx, repo.SetOrderPaymentUrlParams{
+		PaymentUrl:      order.CheckoutUrl,
+		OrderID:         pgtype.UUID{Bytes: order.Id, Valid: true},
+		CancelledStatus: string(StatusCancelled),
+	})
+	if err != nil {
+		slog.Error("Failed to save payment url", "order_id", order.Id, "error", err)
+		return rabbitmq.Requeued
+	}
+
+	if rows == 0 {
+		slog.Info("Ignoring payment url for cancelled or unknown order", "order_id", order.Id)
+		return rabbitmq.Accepted
+	}
+
+	slog.Info("Order payment url saved", "order_id", order.Id, "payment_url", order.CheckoutUrl)
 
 	return rabbitmq.Accepted
 }

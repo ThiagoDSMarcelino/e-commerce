@@ -41,9 +41,10 @@ type OrderItem struct {
 }
 
 type OrderWithItems struct {
-	ID        uuid.UUID   `json:"id"`
-	ClientID  int64       `json:"clientId"`
-	CreatedAt time.Time   `json:"createdAt"`
-	Status    string      `json:"status"`
-	Items     []OrderItem `json:"items"`
+	ID         uuid.UUID   `json:"id"`
+	ClientID   int64       `json:"clientId"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	Status     string      `json:"status"`
+	Items      []OrderItem `json:"items"`
+	PaymentURL string      `json:"paymentUrl,omitempty"`
 }

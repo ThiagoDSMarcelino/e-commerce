@@ -38,6 +38,12 @@ SET status = sqlc.arg('status')
 WHERE id = sqlc.arg('order_id')::uuid
   AND status <> sqlc.arg('cancelled_status');
 
+-- name: SetOrderPaymentUrl :execrows
+UPDATE orders
+SET payment_url = sqlc.arg('payment_url')::text
+WHERE id = sqlc.arg('order_id')::uuid
+  AND status <> sqlc.arg('cancelled_status');
+
 -- name: CancelOrder :one
 UPDATE orders
 SET status = sqlc.arg('status')

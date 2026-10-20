@@ -16,6 +16,7 @@ type ProductRequest struct {
 type OrderEvent struct {
 	Id       uuid.UUID        `json:"id"`
 	Products []ProductRequest `json:"products"`
+	CheckoutUrl string `json:"checkoutUrl,omitempty"`
 }
 
 func newOrderEvent(id uuid.UUID, items []repo.OrderItem) OrderEvent {
