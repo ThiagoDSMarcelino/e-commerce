@@ -115,6 +115,25 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 	return i, err
 }
 
+const deleteRegistration = `-- name: DeleteRegistration :execrows
+DELETE FROM promotion_registrations
+WHERE client_id = $1
+  AND email = $2
+`
+
+type DeleteRegistrationParams struct {
+	ClientID int64  `db:"client_id"`
+	Email    string `db:"email"`
+}
+
+func (q *Queries) DeleteRegistration(ctx context.Context, arg DeleteRegistrationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRegistration, arg.ClientID, arg.Email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getOrder = `-- name: GetOrder :one
 SELECT id, client_id, created_at, status FROM orders
 WHERE id = $1::uuid
@@ -202,7 +221,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 }
 
 const listRegistredEmail = `-- name: ListRegistredEmail :many
-SELECT id, client_id, created_at, email FROM promotion_registrations
+SELECT id, client_id, created_at, email, categories FROM promotion_registrations
 WHERE client_id = $1
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $2
@@ -228,6 +247,7 @@ func (q *Queries) ListRegistredEmail(ctx context.Context, arg ListRegistredEmail
 			&i.ClientID,
 			&i.CreatedAt,
 			&i.Email,
+			&i.Categories,
 		); err != nil {
 			return nil, err
 		}
@@ -252,11 +272,47 @@ type UpdateOrderStatusParams struct {
 	CancelledStatus string      `db:"cancelled_status"`
 }
 
-// Não sobrescreve pedidos cancelados: eventos atrasados do fluxo são ignorados.
 func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateOrderStatus, arg.Status, arg.OrderID, arg.CancelledStatus)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const upsertRegistration = `-- name: UpsertRegistration :one
+INSERT INTO promotion_registrations (
+    id,
+    client_id,
+    email,
+    categories
+) VALUES ($1, $2, $3, $4)
+ON CONFLICT (client_id, email)
+DO UPDATE SET categories = EXCLUDED.categories
+RETURNING id, client_id, created_at, email, categories
+`
+
+type UpsertRegistrationParams struct {
+	ID         pgtype.UUID `db:"id"`
+	ClientID   int64       `db:"client_id"`
+	Email      string      `db:"email"`
+	Categories []string    `db:"categories"`
+}
+
+func (q *Queries) UpsertRegistration(ctx context.Context, arg UpsertRegistrationParams) (PromotionRegistration, error) {
+	row := q.db.QueryRow(ctx, upsertRegistration,
+		arg.ID,
+		arg.ClientID,
+		arg.Email,
+		arg.Categories,
+	)
+	var i PromotionRegistration
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.CreatedAt,
+		&i.Email,
+		&i.Categories,
+	)
+	return i, err
 }

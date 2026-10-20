@@ -22,8 +22,9 @@ type OrderItem struct {
 }
 
 type PromotionRegistration struct {
-	ID        pgtype.UUID        `db:"id"`
-	ClientID  int64              `db:"client_id"`
-	CreatedAt pgtype.Timestamptz `db:"created_at"`
-	Email     string             `db:"email"`
+	ID         pgtype.UUID        `db:"id"`
+	ClientID   int64              `db:"client_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at"`
+	Email      string             `db:"email"`
+	Categories []string           `db:"categories"`
 }

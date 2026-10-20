@@ -55,3 +55,19 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 -- name: CountRegistrations :one
 SELECT count(*) FROM promotion_registrations
 WHERE client_id = sqlc.arg('client_id');
+
+-- name: UpsertRegistration :one
+INSERT INTO promotion_registrations (
+    id,
+    client_id,
+    email,
+    categories
+) VALUES ($1, $2, $3, $4)
+ON CONFLICT (client_id, email)
+DO UPDATE SET categories = EXCLUDED.categories
+RETURNING *;
+
+-- name: DeleteRegistration :execrows
+DELETE FROM promotion_registrations
+WHERE client_id = sqlc.arg('client_id')
+  AND email = sqlc.arg('email');

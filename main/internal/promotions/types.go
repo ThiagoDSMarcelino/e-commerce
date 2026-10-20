@@ -20,8 +20,9 @@ type cancelSubscriptionRequest struct {
 }
 
 type registrationResponse struct {
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"createdAt"`
+	Email      string    `json:"email"`
+	Categories []string  `json:"categories"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type registrationListResponse struct {

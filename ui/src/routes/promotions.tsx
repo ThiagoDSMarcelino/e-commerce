@@ -37,6 +37,10 @@ function errorMessages(errors: unknown[]) {
     .join(', ')
 }
 
+function categoryLabel(id: string) {
+  return PROMOTION_CATEGORIES.find((category) => category.id === id)?.label ?? id
+}
+
 function PromotionsPage() {
   const clientId = useClientId()
 
@@ -217,8 +221,8 @@ function Registrations({ clientId }: { clientId: number }) {
                   <p className="truncate text-sm font-medium">{registration.email}</p>
                   <p className="text-xs text-muted-foreground">
                     Desde {formatDateTime(registration.createdAt)}
-                    {registration.categories?.length
-                      ? ` · ${registration.categories.join(', ')}`
+                    {registration.categories.length
+                      ? ` · ${registration.categories.map(categoryLabel).join(', ')}`
                       : ''}
                   </p>
                 </div>

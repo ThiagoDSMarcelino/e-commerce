@@ -41,7 +41,7 @@ export type CancelOrderInput = {
 export type Registration = {
   email: string
   createdAt: string
-  categories?: string[]
+  categories: string[]
 }
 
 export type RegisterPromotionInput = {

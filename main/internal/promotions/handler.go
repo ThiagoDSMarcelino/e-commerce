@@ -1,6 +1,7 @@
 package promotions
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -66,7 +67,11 @@ func (h *Handler) CancelSubscription(c *gin.Context) {
 	}
 
 	err := h.srv.CancelSubscription(c.Request.Context(), req)
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrRegistrationNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	case err != nil:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

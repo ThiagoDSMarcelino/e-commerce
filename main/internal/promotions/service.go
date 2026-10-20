@@ -7,12 +7,18 @@ import (
 	"log/slog"
 	repo "main/internal/adapters/postgresql/sqlc"
 	"main/internal/adapters/rabbitmq"
+	"strings"
+	"uuid"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
 	routingKeyPromotionsRegister   = "interesse.promocao.register"
 	routingKeyPromotionsUnregister = "interesse.promocao.unregister"
 )
+
+var ErrRegistrationNotFound = errors.New("inscrição não encontrada")
 
 type Service interface {
 	ListRegistredEmails(ctx context.Context, data listRegistredEmailQuery) ([]registrationResponse, error)
@@ -43,8 +49,9 @@ func (s *svc) ListRegistredEmails(ctx context.Context, data listRegistredEmailQu
 	res := make([]registrationResponse, 0, len(registrations))
 	for _, r := range registrations {
 		res = append(res, registrationResponse{
-			Email:     r.Email,
-			CreatedAt: r.CreatedAt.Time,
+			Email:      r.Email,
+			Categories: r.Categories,
+			CreatedAt:  r.CreatedAt.Time,
 		})
 	}
 
@@ -56,48 +63,71 @@ func (s *svc) Count(ctx context.Context, clientId int64) (int64, error) {
 }
 
 func (s *svc) RegisterSubscription(ctx context.Context, data registerSubscriptionRequest) error {
-	event := registerPromotionEvent{
-		Email:      data.Email,
-		ClientID:   data.ClientID,
-		Categories: data.Categories,
-	}
+	email := normalizeEmail(data.Email)
 
-	payload, err := json.Marshal(event)
+	_, err := s.repo.UpsertRegistration(ctx, repo.UpsertRegistrationParams{
+		ID:         pgtype.UUID{Bytes: uuid.NewV7(), Valid: true},
+		ClientID:   data.ClientID,
+		Email:      email,
+		Categories: data.Categories,
+	})
 	if err != nil {
 		return err
 	}
 
-	if err := s.rqm.Publish(ctx, routingKeyPromotionsRegister, payload); err != nil {
-		if !errors.Is(err, rabbitmq.ErrUnroutable) {
-			slog.Error("Failed to publish promotion event", "error", err)
-			return err
-		} else {
-			slog.Warn("Order event was not routed to any queue")
-		}
+	event := registerPromotionEvent{
+		Email:      email,
+		ClientID:   data.ClientID,
+		Categories: data.Categories,
 	}
+
+	s.publish(ctx, routingKeyPromotionsRegister, event)
 
 	return nil
 }
 
 func (s *svc) CancelSubscription(ctx context.Context, data cancelSubscriptionRequest) error {
-	event := unregisterPromotionEvent{
-		Email:    data.Email,
-		ClientID: data.ClientID,
-	}
+	email := normalizeEmail(data.Email)
 
-	payload, err := json.Marshal(event)
+	rows, err := s.repo.DeleteRegistration(ctx, repo.DeleteRegistrationParams{
+		ClientID: data.ClientID,
+		Email:    email,
+	})
 	if err != nil {
 		return err
 	}
-
-	if err := s.rqm.Publish(ctx, routingKeyPromotionsUnregister, payload); err != nil {
-		if !errors.Is(err, rabbitmq.ErrUnroutable) {
-			slog.Error("Failed to publish promotion event", "error", err)
-			return err
-		} else {
-			slog.Warn("Order event was not routed to any queue")
-		}
+	if rows == 0 {
+		return ErrRegistrationNotFound
 	}
 
+	event := unregisterPromotionEvent{
+		Email:    email,
+		ClientID: data.ClientID,
+	}
+
+	s.publish(ctx, routingKeyPromotionsUnregister, event)
+
 	return nil
+}
+
+// publish envia o evento ao broker. A inscrição já está persistida, então
+// falhas aqui são apenas logadas.
+func (s *svc) publish(ctx context.Context, routingKey string, event any) {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("Failed to serialize promotion event", "routingKey", routingKey, "error", err)
+		return
+	}
+
+	if err := s.rqm.Publish(ctx, routingKey, payload); err != nil {
+		if !errors.Is(err, rabbitmq.ErrUnroutable) {
+			slog.Error("Failed to publish promotion event", "routingKey", routingKey, "error", err)
+		} else {
+			slog.Warn("Promotion event was not routed to any queue", "routingKey", routingKey)
+		}
+	}
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
