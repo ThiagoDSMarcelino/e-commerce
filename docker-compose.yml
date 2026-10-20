@@ -147,9 +147,14 @@ services:
       SERVICE_NAME: promotions
       KEYS_DIR: /keys
       QUEUE_NAME: fila.promocoes
+      STORAGE_URL: http://storage:8080
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM: ${RESEND_FROM:-E-commerce <onboarding@resend.dev>}
     volumes:
       - ./promotions/keys:/keys:ro
     depends_on:
+      storage:
+        condition: service_started
       rabbitmq:
         condition: service_healthy
       keygen:

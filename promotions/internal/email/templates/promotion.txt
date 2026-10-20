@@ -1,0 +1,13 @@
+PROMOÇÃO EM {{.CategoryLabel | upper}}
+
+{{.Discount}}% OFF em {{.ProductName}}
+
+Código do produto: {{.ProductID}}
+Categoria: {{.CategoryLabel}}
+Válido até: {{.ValidUntil}}
+
+Aproveite: o desconto vale para compras feitas na loja até {{.ValidUntil}} ou enquanto durar o estoque.
+
+--
+Você recebeu este email porque se inscreveu para receber promoções de {{.CategoryLabel}}.
+Para parar de receber, cancele sua inscrição na página de promoções da loja.

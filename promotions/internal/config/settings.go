@@ -10,6 +10,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const defaultResendFrom = "E-commerce <onboarding@resend.dev>"
+
 type RabbitSettings struct {
 	BrokerURI    string
 	ExchangeName string
@@ -18,6 +20,11 @@ type RabbitSettings struct {
 
 type ResendSettings struct {
 	ApiKey string
+	From   string
+}
+
+type StorageSettings struct {
+	URL string
 }
 
 type LogSettings struct {
@@ -32,6 +39,7 @@ type SigningSettings struct {
 type Settings struct {
 	Rmq     RabbitSettings
 	Resend  ResendSettings
+	Storage StorageSettings
 	Log     LogSettings
 	Signing SigningSettings
 }
@@ -72,8 +80,18 @@ func LoadSettings() (*Settings, error) {
 	}
 
 	resendApiKey := os.Getenv("RESEND_API_KEY")
-	if queueName == "" {
+	if resendApiKey == "" {
 		return nil, errors.New("RESEND_API_KEY is not set or is empty")
+	}
+
+	resendFrom := os.Getenv("RESEND_FROM")
+	if resendFrom == "" {
+		resendFrom = defaultResendFrom
+	}
+
+	storageURL := strings.TrimRight(os.Getenv("STORAGE_URL"), "/")
+	if storageURL == "" {
+		return nil, errors.New("STORAGE_URL is not set or is empty")
 	}
 
 	return &Settings{
@@ -90,7 +108,11 @@ func LoadSettings() (*Settings, error) {
 			KeysDir:     keysDir,
 		},
 		Resend: ResendSettings{
-			resendApiKey,
+			ApiKey: resendApiKey,
+			From:   resendFrom,
+		},
+		Storage: StorageSettings{
+			URL: storageURL,
 		},
 	}, nil
 }

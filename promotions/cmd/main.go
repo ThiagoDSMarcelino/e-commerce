@@ -8,23 +8,21 @@ import (
 	"os"
 	"os/signal"
 	"promotions/internal/adapters/rabbitmq"
+	"promotions/internal/catalog"
 	"promotions/internal/config"
+	"promotions/internal/email"
+	"promotions/internal/promotions"
 	"promotions/internal/registrations"
 	"promotions/internal/signing"
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
 const (
 	maxDelaySeconds = 10
 	minDelaySeconds = 5
-
-	minDiscount  = 5
-	maxDiscount  = 30
-	validityDays = 30
 )
 
 const (
@@ -43,10 +41,6 @@ func run() error {
 	// Create a context that will be canceled on SIGINT (Ctrl+C) or SIGTERM.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("no .env file found, using environment variables")
-	}
 
 	settings, err := config.LoadSettings()
 	if err != nil {
@@ -74,23 +68,13 @@ func run() error {
 		return fmt.Errorf("Failed to declare an exchange: %v", err)
 	}
 
-	registrationConsumer, err := rabbitmq.NewConsumer[registrations.RegisterPromotionEvent](
+	consumer, err := rabbitmq.NewConsumer(
 		ctx,
 		signer,
 		conn,
 		settings.Rmq.ExchangeName,
-		routingKeyPromotionsRegister,
-	)
-	if err != nil {
-		return err
-	}
-
-	unregistrationConsumer, err := rabbitmq.NewConsumer[registrations.UnregisterPromotionEvent](
-		ctx,
-		signer,
-		conn,
-		settings.Rmq.ExchangeName,
-		routingKeyPromotionsUnregister,
+		settings.Rmq.QueueName,
+		[]string{routingKeyPromotionsRegister, routingKeyPromotionsUnregister},
 	)
 	if err != nil {
 		return err
@@ -98,32 +82,16 @@ func run() error {
 
 	registrationService := registrations.NewService()
 
-	go registrationConsumer.Run(ctx, registrationService.RegisterEmail)
-	go unregistrationConsumer.Run(ctx, registrationService.UnregisterEmail)
+	go consumer.Run(ctx, map[string]rabbitmq.Handler{
+		routingKeyPromotionsRegister:   rabbitmq.JSON(registrationService.RegisterEmail),
+		routingKeyPromotionsUnregister: rabbitmq.JSON(registrationService.UnregisterEmail),
+	})
 
-	// resendClient := resend.NewClient(settings.Resend.ApiKey)
+	catalogClient := catalog.NewClient(settings.Storage.URL)
+	sender := email.NewSender(settings.Resend.ApiKey, settings.Resend.From)
 
 	for {
-		registrationService.GetRegistredEmails()
-
-		// TODO: send
-
-		// params := &resend.SendEmailRequest{
-		// 	From:    "Acme <onboarding@resend.dev>",
-		// 	To:      []string{"delivered@resend.dev"},
-		// 	Html:    "<strong>hello world</strong>",
-		// 	Subject: "Hello from Golang",
-		// 	Cc:      []string{"cc@example.com"},
-		// 	Bcc:     []string{"bcc@example.com"},
-		// 	ReplyTo: "replyto@example.com",
-		// }
-
-		// sent, err := client.Emails.Send(params)
-		// if err != nil {
-		// 	fmt.Println(err.Error())
-		// 	return
-		// }
-		// fmt.Println(sent.Id)
+		sendPromotion(ctx, catalogClient, registrationService, sender)
 
 		delay := rand.IntN(maxDelaySeconds-minDelaySeconds+1) + minDelaySeconds
 
@@ -133,5 +101,44 @@ func run() error {
 			return nil
 		case <-time.After(time.Duration(delay) * time.Second):
 		}
+	}
+}
+
+func sendPromotion(ctx context.Context, catalogClient *catalog.Client, registrationService *registrations.Service, sender *email.Sender) {
+	products, err := catalogClient.Products(ctx)
+	if err != nil {
+		slog.Error("Failed to fetch products", "error", err)
+		return
+	}
+
+	if len(products) == 0 {
+		slog.Debug("No products in stock, skipping promotion")
+		return
+	}
+
+	promo := promotions.Generate(products)
+
+	recipients := registrationService.Recipients(promo.Category)
+	if len(recipients) == 0 {
+		slog.Debug("No subscribers for category, skipping promotion", "category", promo.Category, "productId", promo.ProductID)
+		return
+	}
+
+	msg, err := email.Render(promo)
+	if err != nil {
+		slog.Error("Failed to render promotion email", "error", err)
+		return
+	}
+
+	slog.Info("Sending promotion",
+		"promotionId", promo.ID,
+		"productId", promo.ProductID,
+		"category", promo.Category,
+		"discount", promo.Discount,
+		"recipients", len(recipients),
+	)
+
+	if err := sender.Send(ctx, msg, promo.ID, promo.Category, recipients); err != nil {
+		slog.Error("Failed to send promotion", "promotionId", promo.ID, "error", err)
 	}
 }

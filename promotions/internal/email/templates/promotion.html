@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{.Discount}}% OFF em {{.ProductName}}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    {{.Discount}}% de desconto em {{.ProductName}} até {{.ValidUntil}}.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background-color:#ffffff;border-radius:8px;">
+          <tr>
+            <td style="padding:24px 32px;background-color:#18181b;border-radius:8px 8px 0 0;">
+              <p style="margin:0;font-size:14px;letter-spacing:1px;text-transform:uppercase;color:#a1a1aa;">Promoção em {{.CategoryLabel}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h1 style="margin:0 0 8px;font-size:40px;line-height:1.1;color:#dc2626;">{{.Discount}}% OFF</h1>
+              <h2 style="margin:0 0 24px;font-size:22px;line-height:1.3;color:#18181b;">{{.ProductName}}</h2>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;border:1px solid #e4e4e7;border-radius:6px;">
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#52525b;border-bottom:1px solid #e4e4e7;">Código do produto</td>
+                  <td align="right" style="padding:12px 16px;font-size:14px;font-weight:bold;border-bottom:1px solid #e4e4e7;">{{.ProductID}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#52525b;border-bottom:1px solid #e4e4e7;">Categoria</td>
+                  <td align="right" style="padding:12px 16px;font-size:14px;font-weight:bold;border-bottom:1px solid #e4e4e7;">{{.CategoryLabel}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#52525b;">Válido até</td>
+                  <td align="right" style="padding:12px 16px;font-size:14px;font-weight:bold;">{{.ValidUntil}}</td>
+                </tr>
+              </table>
+              <p style="margin:0;font-size:16px;line-height:1.5;color:#3f3f46;">
+                Aproveite: o desconto vale para compras feitas na loja até {{.ValidUntil}} ou enquanto durar o estoque.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;border-top:1px solid #e4e4e7;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#71717a;">
+                Você recebeu este email porque se inscreveu para receber promoções de {{.CategoryLabel}}.
+                Para parar de receber, cancele sua inscrição na página de promoções da loja.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
