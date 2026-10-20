@@ -41,7 +41,8 @@ RETURNING *;
 
 -- name: SetOrderPaymentUrl :one
 UPDATE orders
-SET payment_url = sqlc.arg('payment_url')::text
+SET payment_url = sqlc.arg('payment_url')::text,
+    status = sqlc.arg('status')
 WHERE id = sqlc.arg('order_id')::uuid
   AND status <> sqlc.arg('cancelled_status')
 RETURNING *;

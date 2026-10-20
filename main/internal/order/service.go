@@ -251,6 +251,7 @@ func (s *svc) savePaymentUrl(ctx context.Context, order *OrderEvent) rabbitmq.Me
 
 	updated, err := s.repo.SetOrderPaymentUrl(ctx, repo.SetOrderPaymentUrlParams{
 		PaymentUrl:      order.CheckoutUrl,
+		Status:          string(StatusAwaitingPay),
 		OrderID:         pgtype.UUID{Bytes: order.Id, Valid: true},
 		CancelledStatus: string(StatusCancelled),
 	})
@@ -263,7 +264,7 @@ func (s *svc) savePaymentUrl(ctx context.Context, order *OrderEvent) rabbitmq.Me
 		return rabbitmq.Requeued
 	}
 
-	slog.Info("Order payment url saved", "order_id", order.Id, "payment_url", order.CheckoutUrl)
+	slog.Info("Order awaiting payment", "order_id", order.Id, "payment_url", order.CheckoutUrl)
 
 	s.events.Publish(updated.ClientID, toStatusEvent(updated))
 

@@ -5,6 +5,7 @@ type OrderStatus string
 const (
 	StatusCreated       OrderStatus = "Criado"
 	StatusStockOk       OrderStatus = "Estoque confirmado"
+	StatusAwaitingPay   OrderStatus = "Aguardando pagamento"
 	StatusOutOfStock    OrderStatus = "Estoque indisponível"
 	StatusPaymentOk     OrderStatus = "Pagamento aprovado"
 	StatusPaymentFailed OrderStatus = "Pagamento recusado"

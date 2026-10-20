@@ -265,20 +265,27 @@ func (q *Queries) ListRegistredEmail(ctx context.Context, arg ListRegistredEmail
 
 const setOrderPaymentUrl = `-- name: SetOrderPaymentUrl :one
 UPDATE orders
-SET payment_url = $1::text
-WHERE id = $2::uuid
-  AND status <> $3
+SET payment_url = $1::text,
+    status = $2
+WHERE id = $3::uuid
+  AND status <> $4
 RETURNING id, client_id, created_at, status, payment_url
 `
 
 type SetOrderPaymentUrlParams struct {
 	PaymentUrl      string      `db:"payment_url"`
+	Status          string      `db:"status"`
 	OrderID         pgtype.UUID `db:"order_id"`
 	CancelledStatus string      `db:"cancelled_status"`
 }
 
 func (q *Queries) SetOrderPaymentUrl(ctx context.Context, arg SetOrderPaymentUrlParams) (Order, error) {
-	row := q.db.QueryRow(ctx, setOrderPaymentUrl, arg.PaymentUrl, arg.OrderID, arg.CancelledStatus)
+	row := q.db.QueryRow(ctx, setOrderPaymentUrl,
+		arg.PaymentUrl,
+		arg.Status,
+		arg.OrderID,
+		arg.CancelledStatus,
+	)
 	var i Order
 	err := row.Scan(
 		&i.ID,
