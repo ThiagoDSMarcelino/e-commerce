@@ -12,10 +12,11 @@ const (
 	StatusCancelled     OrderStatus = "Cancelado"
 )
 
-// Status a partir dos quais o pedido não pode mais ser cancelado.
 var nonCancellableStatuses = []string{
 	string(StatusShipped),
 	string(StatusCancelled),
+	string(StatusOutOfStock),
+	string(StatusPaymentFailed),
 }
 
 var statusByRoutingKey = map[string]OrderStatus{

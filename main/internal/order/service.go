@@ -168,7 +168,6 @@ func (s *svc) CancelOrder(ctx context.Context, orderId uuid.UUID, clientId int64
 		return OrderWithItems{}, err
 	}
 
-	// O storage devolve ao estoque o que tiver sido reservado para o pedido.
 	event := newOrderEvent(orderId, items)
 	payload, err := event.Serialize()
 	if err != nil {
@@ -195,7 +194,6 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 		return rabbitmq.Rejected
 	}
 
-	// pagamento.pendente não muda o status: só traz o link de pagamento.
 	if event.RoutingKey == routingKeyPaymentPending {
 		return s.savePaymentUrl(ctx, order)
 	}
@@ -245,8 +243,6 @@ func (s *svc) HandleStatusEvent(ctx context.Context, event rabbitmq.Event) rabbi
 	return rabbitmq.Accepted
 }
 
-// savePaymentUrl guarda o link do mock de pagamento, que a listagem devolve
-// como paymentUrl para a UI mostrar o botão "Pagar".
 func (s *svc) savePaymentUrl(ctx context.Context, order *OrderEvent) rabbitmq.MessageResponse {
 	if order.CheckoutUrl == "" {
 		slog.Error("Payment pending event without checkout url", "order_id", order.Id)

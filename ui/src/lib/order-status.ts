@@ -30,8 +30,15 @@ export function statusMeta(status: string): StatusMeta {
 }
 
 // Espelho de nonCancellableStatuses em main/internal/order/status.go
+const NON_CANCELLABLE: string[] = [
+  ORDER_STATUS.shipped,
+  ORDER_STATUS.cancelled,
+  ORDER_STATUS.outOfStock,
+  ORDER_STATUS.paymentFailed,
+]
+
 export function canCancel(status: string) {
-  return status !== ORDER_STATUS.shipped && status !== ORDER_STATUS.cancelled
+  return !NON_CANCELLABLE.includes(status)
 }
 
 // Pedido aguardando o consumidor pagar (quando o main passar a enviar paymentUrl).

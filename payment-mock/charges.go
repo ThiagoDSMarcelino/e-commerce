@@ -28,8 +28,6 @@ func NewChargeStore() *ChargeStore {
 	return &ChargeStore{charges: make(map[string]*Charge)}
 }
 
-// Create registers a pending charge. A charge that already left the pending
-// state is kept as is and Create returns false.
 func (s *ChargeStore) Create(orderId, webhookUrl string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -55,8 +53,6 @@ func (s *ChargeStore) Get(orderId string) (Charge, bool) {
 	return *c, true
 }
 
-// StartProcessing moves a pending charge to processing, so a double click
-// notifies the webhook only once.
 func (s *ChargeStore) StartProcessing(orderId string) (Charge, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

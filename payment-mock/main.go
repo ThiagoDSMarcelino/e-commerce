@@ -20,7 +20,6 @@ func main() {
 }
 
 func run() error {
-	// Create a context that will be canceled on SIGINT (Ctrl+C) or SIGTERM.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 

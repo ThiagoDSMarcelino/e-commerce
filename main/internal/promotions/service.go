@@ -110,8 +110,6 @@ func (s *svc) CancelSubscription(ctx context.Context, data cancelSubscriptionReq
 	return nil
 }
 
-// publish envia o evento ao broker. A inscrição já está persistida, então
-// falhas aqui são apenas logadas.
 func (s *svc) publish(ctx context.Context, routingKey string, event any) {
 	payload, err := json.Marshal(event)
 	if err != nil {

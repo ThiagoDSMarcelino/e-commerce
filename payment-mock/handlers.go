@@ -54,8 +54,6 @@ func NewHandlers(settings *Settings, charges *ChargeStore) *Handlers {
 	}
 }
 
-// CreateCharge is called by the payments service and answers with the
-// checkout URL the user opens in the browser.
 func (h *Handlers) CreateCharge(w http.ResponseWriter, r *http.Request) {
 	var req chargeRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
@@ -100,8 +98,6 @@ func (h *Handlers) ShowCheckout(w http.ResponseWriter, r *http.Request) {
 	h.render(w, status, checkoutPage{OrderId: orderId, Found: ok, Charge: charge})
 }
 
-// Pay handles the click on one of the buttons: it notifies the payments
-// webhook and redirects back to the checkout page, which shows the result.
 func (h *Handlers) Pay(w http.ResponseWriter, r *http.Request) {
 	orderId := r.PathValue("orderId")
 	checkoutPath := "/checkout/" + url.PathEscape(orderId)
@@ -114,20 +110,16 @@ func (h *Handlers) Pay(w http.ResponseWriter, r *http.Request) {
 
 	charge, ok := h.charges.StartProcessing(orderId)
 	if !ok {
-		// Unknown order or a click on a charge that is no longer pending.
 		http.Redirect(w, r, checkoutPath, http.StatusSeeOther)
 		return
 	}
 
-	// Finish the call even if the user closes the tab in the meantime.
 	final, errMsg := h.notify(context.WithoutCancel(r.Context()), charge, status)
 	h.charges.Finish(orderId, final, errMsg)
 
 	http.Redirect(w, r, checkoutPath, http.StatusSeeOther)
 }
 
-// notify calls the payments webhook and returns the new charge status. A
-// temporary failure puts the charge back to pending so the user can retry.
 func (h *Handlers) notify(ctx context.Context, charge Charge, status ChargeStatus) (ChargeStatus, string) {
 	body, err := json.Marshal(webhookRequest{OrderId: charge.OrderId, Status: string(status)})
 	if err != nil {
