@@ -2,16 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 const (
 	routingKeyApproved = "pagamento.aprovado"
 	routingKeyDeclined = "pagamento.recusado"
+	routingKeyPending  = "pagamento.pendente"
 )
 
 var bindingKeys = []string{"pedido.estoque_ok"}
@@ -48,7 +53,29 @@ func run() error {
 		_ = broker.Close()
 	}()
 
-	paymentProcessor := NewPaymentProcessor(broker, settings.ProcessingDelay)
+	paymentProcessor := NewPaymentProcessor(broker, NewChargeClient(settings), settings.ProcessingDelay)
+
+	listener, err := net.Listen("tcp", ":"+settings.Port)
+	if err != nil {
+		return fmt.Errorf("Failed to listen on port %s: %v", settings.Port, err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /webhook", paymentProcessor.HandleWebhook)
+
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("Webhook server stopped", "error", err)
+		}
+	}()
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+	}()
+
+	slog.Info("Webhook ouvindo", "port", settings.Port)
 
 	return broker.Consume(ctx, paymentProcessor.ProcessDelivery)
 }

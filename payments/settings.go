@@ -13,13 +13,16 @@ import (
 )
 
 type Settings struct {
-	BrokerURI    string
-	ExchangeName string
-	LogLevel     slog.Level
-	ServiceName  string
-	KeysDir      string
-	QueueName    string
+	BrokerURI       string
+	ExchangeName    string
+	LogLevel        slog.Level
+	ServiceName     string
+	KeysDir         string
+	QueueName       string
 	ProcessingDelay time.Duration
+	PaymentMockURL  string
+	WebhookURL      string
+	Port            string
 }
 
 func LoadSettings() (*Settings, error) {
@@ -62,6 +65,21 @@ func LoadSettings() (*Settings, error) {
 		return nil, err
 	}
 
+	paymentMockURL := os.Getenv("PAYMENT_MOCK_URL")
+	if paymentMockURL == "" {
+		return nil, errors.New("PAYMENT_MOCK_URL is not set or is empty")
+	}
+
+	webhookURL := os.Getenv("WEBHOOK_URL")
+	if webhookURL == "" {
+		return nil, errors.New("WEBHOOK_URL is not set or is empty")
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		return nil, errors.New("PORT is not set or is empty")
+	}
+
 	return &Settings{
 		BrokerURI:       brokerURI,
 		ExchangeName:    exchangeName,
@@ -70,6 +88,9 @@ func LoadSettings() (*Settings, error) {
 		KeysDir:         keysDir,
 		QueueName:       queueName,
 		ProcessingDelay: processingDelay,
+		PaymentMockURL:  strings.TrimRight(paymentMockURL, "/"),
+		WebhookURL:      webhookURL,
+		Port:            port,
 	}, nil
 }
 

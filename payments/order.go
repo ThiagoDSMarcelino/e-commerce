@@ -12,8 +12,9 @@ type Product struct {
 }
 
 type Order struct {
-	Id       string    `json:"id"`
-	Products []Product `json:"products"`
+	Id          string    `json:"id"`
+	Products    []Product `json:"products"`
+	CheckoutUrl string    `json:"checkoutUrl,omitempty"`
 }
 
 func ParseOrder(data []byte) (*Order, error) {

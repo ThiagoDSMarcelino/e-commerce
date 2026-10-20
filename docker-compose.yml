@@ -128,6 +128,9 @@ services:
       KEYS_DIR: /keys
       QUEUE_NAME: fila.pagamento
       PROCESSING_DELAY_SECONDS: 10
+      PAYMENT_MOCK_URL: http://payment-mock:8080
+      WEBHOOK_URL: http://payments:8080/webhook
+      PORT: 8080
     volumes:
       - ./payments/keys:/keys:ro
     depends_on:

@@ -3,19 +3,24 @@ package main
 import (
 	"context"
 	"log/slog"
-	"math/rand/v2"
+	"sync"
 	"time"
 )
 
 type PaymentProcessor struct {
-	broker *Broker
-	delay  time.Duration
+	broker  *Broker
+	charges *ChargeClient
+	delay   time.Duration
+	mu      sync.Mutex
+	pending map[string]*Order
 }
 
-func NewPaymentProcessor(broker *Broker, delay time.Duration) *PaymentProcessor {
+func NewPaymentProcessor(broker *Broker, charges *ChargeClient, delay time.Duration) *PaymentProcessor {
 	return &PaymentProcessor{
-		broker: broker,
-		delay:  delay,
+		broker:  broker,
+		charges: charges,
+		delay:   delay,
+		pending: make(map[string]*Order),
 	}
 }
 
@@ -29,38 +34,49 @@ func (pp *PaymentProcessor) ProcessDelivery(ctx context.Context, data []byte) Me
 		return Requeued
 	}
 
-	shouldAprove, err := pp.processPayment(order)
+	slog.Info("Iniciando pagamento", "order", order)
+
+	checkoutUrl, err := pp.charges.CreateCharge(ctx, order.Id)
 	if err != nil {
+		slog.Error("Falha ao criar cobranca", "order", order.Id, "error", err)
 		return Rejected
 	}
 
-	var routingKey string
-	if shouldAprove {
-		slog.Info("Pagamento aprovado", "order", order)
-		routingKey = routingKeyApproved
-	} else {
-		slog.Info("Pagamento recusado", "order", order)
-		routingKey = routingKeyDeclined
-	}
+	slog.Info("Cobranca criada", "order", order.Id, "checkoutUrl", checkoutUrl)
 
-	payload, err := order.Serialize()
-	if err != nil {
-		return Requeued
-	}
+	pp.putPending(order)
 
-	err = pp.broker.Publish(ctx, routingKey, payload)
+	err = pp.publish(ctx, routingKeyPending, &Order{Id: order.Id, Products: order.Products, CheckoutUrl: checkoutUrl})
 	if err != nil {
+		slog.Error("Falha ao publicar "+routingKeyPending, "order", order.Id, "error", err)
 		return Rejected
 	}
 
 	return Accepted
 }
 
-func (pp *PaymentProcessor) processPayment(order *Order) (bool, error) {
-	slog.Info("Iniciando pagamento", "order", order)
+func (pp *PaymentProcessor) publish(ctx context.Context, routingKey string, order *Order) error {
+	payload, err := order.Serialize()
+	if err != nil {
+		return err
+	}
 
-	randomInt := rand.IntN(100)
-	shouldAprove := randomInt < 80 // 80% chance of approval
+	return pp.broker.Publish(ctx, routingKey, payload)
+}
 
-	return shouldAprove, nil
+func (pp *PaymentProcessor) putPending(order *Order) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+
+	pp.pending[order.Id] = order
+}
+
+func (pp *PaymentProcessor) takePending(orderId string) (*Order, bool) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+
+	order, ok := pp.pending[orderId]
+	delete(pp.pending, orderId)
+
+	return order, ok
 }
